@@ -1,0 +1,5 @@
+set_property SRC_FILE_INFO {cfile:/home/iwolfs/Work/Projects/fpga_project/xilinx/xilinx-experiments/test_project/blinky/blinky.srcs/constrs_1/new/switches_led_constraints.xdc rfile:../../../blinky.srcs/constrs_1/new/switches_led_constraints.xdc id:1} [current_design]
+set_property src_info {type:XDC file:1 line:2 export:INPUT save:INPUT read:READ} [current_design]
+set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33} [get_ports {led0}]
+set_property src_info {type:XDC file:1 line:5 export:INPUT save:INPUT read:READ} [current_design]
+set_property -dict {PACKAGE_PIN G15 IOSTANDARD LVCMOS33} [get_ports {btn0}]

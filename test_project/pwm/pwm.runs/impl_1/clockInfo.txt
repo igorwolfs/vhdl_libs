@@ -1,0 +1,10 @@
+-------------------------------------
+| Tool Version : Vivado v.2023.2
+| Date         : Fri Jan 24 23:31:35 2025
+| Host         : iwolfs-Aspire-A14-51z
+| Design       : design_1
+| Device       : xc7s25-csga324-2--
+-------------------------------------
+
+For more information on clockInfo.txt clock routing debug file see https://support.xilinx.com/s/article/000035660?language=en_US
+
