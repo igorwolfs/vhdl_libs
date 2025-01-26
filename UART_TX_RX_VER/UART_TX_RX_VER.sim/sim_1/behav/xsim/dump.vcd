@@ -1,0 +1,401 @@
+$date
+   Sun Jan 26 22:07:11 2025
+$end
+
+$version
+  2023.2
+  $dumpfile ("dump.vcd") 
+$end
+
+$timescale
+  1ps
+$end
+
+$scope module UART_TB $end
+$var reg 1 ! r_Clock $end
+$var reg 1 " r_TX_DV $end
+$var wire 1 # w_TX_Active $end
+$var wire 1 $ w_UART_Line $end
+$var wire 1 % w_TX_Serial $end
+$var reg 8 & r_TX_Byte [7:0] $end
+$var wire 8 ' w_RX_Byte [7:0] $end
+$var wire 1 ( w_RX_DV $end
+$scope module UART_RX_Inst $end
+$var wire 1 ) i_Rst_L $end
+$var wire 1 * i_Clock $end
+$var wire 1 $ i_RX_Serial $end
+$var reg 1 + o_RX_DV $end
+$var reg 8 , o_RX_Byte [7:0] $end
+$var reg 8 - r_Clock_Count [7:0] $end
+$var reg 3 . r_Bit_Index [2:0] $end
+$var reg 3 / r_SM_Main [2:0] $end
+$var reg 1 0 r_RX_Data_R $end
+$var reg 1 1 r_RX_Data $end
+$upscope $end
+$scope module UART_TX_Inst $end
+$var wire 1 2 i_Rst_L $end
+$var wire 1 3 i_Clock $end
+$var wire 1 4 i_TX_DV $end
+$var wire 8 5 i_TX_Byte [7:0] $end
+$var reg 1 6 o_TX_Active $end
+$var reg 1 7 o_TX_Serial $end
+$var reg 1 8 o_TX_Done $end
+$var reg 3 9 r_SM_Main [2:0] $end
+$var reg 9 : r_Clock_Count [8:0] $end
+$var reg 3 ; r_Bit_Index [2:0] $end
+$var reg 8 < r_TX_Data [7:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+
+#0
+$dumpvars
+0!
+0"
+x#
+x$
+x%
+b0 &
+bx '
+x(
+z)
+0*
+x+
+bx ,
+bx -
+bx .
+bx /
+x0
+x1
+z2
+03
+04
+b0 5
+x6
+x7
+x8
+bx 9
+bx :
+bx ;
+bx <
+$end
+
+#20000
+1!
+1*
+b0 /
+13
+08
+b0 9
+
+#40000
+0!
+0*
+03
+
+#60000
+1!
+1"
+1$
+1%
+b1001111 &
+0(
+1*
+0+
+b0 -
+b0 .
+13
+14
+b1001111 5
+17
+b0 :
+b0 ;
+
+#80000
+0!
+0*
+03
+
+#100000
+1!
+0"
+1#
+1*
+10
+13
+04
+16
+b1 9
+b1001111 <
+
+#120000
+0!
+0*
+03
+
+#140000
+1!
+0$
+0%
+1*
+11
+13
+07
+b1 :
+
+#160000
+0!
+0*
+03
+
+#180000
+1!
+1*
+00
+13
+b10 :
+
+#200000
+0!
+0*
+03
+
+#220000
+1!
+1*
+01
+13
+b11 :
+
+#240000
+0!
+0*
+03
+
+#260000
+1!
+1*
+b1 /
+13
+b100 :
+
+#280000
+0!
+0*
+03
+
+#300000
+1!
+1*
+b1 -
+13
+b101 :
+
+#320000
+0!
+0*
+03
+
+#340000
+1!
+1*
+b10 -
+13
+b110 :
+
+#360000
+0!
+0*
+03
+
+#380000
+1!
+1*
+b11 -
+13
+b111 :
+
+#400000
+0!
+0*
+03
+
+#420000
+1!
+1*
+b100 -
+13
+b1000 :
+
+#440000
+0!
+0*
+03
+
+#460000
+1!
+1*
+b101 -
+13
+b1001 :
+
+#480000
+0!
+0*
+03
+
+#500000
+1!
+1*
+b110 -
+13
+b1010 :
+
+#520000
+0!
+0*
+03
+
+#540000
+1!
+1*
+b111 -
+13
+b1011 :
+
+#560000
+0!
+0*
+03
+
+#580000
+1!
+1*
+b1000 -
+13
+b1100 :
+
+#600000
+0!
+0*
+03
+
+#620000
+1!
+1*
+b1001 -
+13
+b1101 :
+
+#640000
+0!
+0*
+03
+
+#660000
+1!
+1*
+b1010 -
+13
+b1110 :
+
+#680000
+0!
+0*
+03
+
+#700000
+1!
+1*
+b1011 -
+13
+b1111 :
+
+#720000
+0!
+0*
+03
+
+#740000
+1!
+1*
+b1100 -
+13
+b10000 :
+
+#760000
+0!
+0*
+03
+
+#780000
+1!
+1*
+b1101 -
+13
+b10001 :
+
+#800000
+0!
+0*
+03
+
+#820000
+1!
+1*
+b1110 -
+13
+b10010 :
+
+#840000
+0!
+0*
+03
+
+#860000
+1!
+1*
+b1111 -
+13
+b10011 :
+
+#880000
+0!
+0*
+03
+
+#900000
+1!
+1*
+b10000 -
+13
+b10100 :
+
+#920000
+0!
+0*
+03
+
+#940000
+1!
+1*
+b10001 -
+13
+b10101 :
+
+#960000
+0!
+0*
+03
+
+#980000
+1!
+1*
+b10010 -
+13
+b10110 :
+
+#1000000
+0!
+0*
+03
