@@ -1,0 +1,2 @@
+Breakpoint File Version 1.0
+45,true,"/home/iwolfs/Work/Projects/fpga_project/xilinx/xilinx-experiments/UART_TX_RX_VER/UART_TX_RX_VER.srcs/sim_1/new/BUTTON_UART_SIM.v"

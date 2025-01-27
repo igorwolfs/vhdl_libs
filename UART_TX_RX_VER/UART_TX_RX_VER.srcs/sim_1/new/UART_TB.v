@@ -67,10 +67,10 @@ module UART_TB ();
         $display("Test Passed - Correct Byte Received");
       else
         $display("Test Failed - Incorrect Byte Received");
-      $finish();
+      $finish;
     end
-  
-  initial 
+
+  initial
     begin
       // Required to dump signals to EPWave
       $dumpfile("dump.vcd");

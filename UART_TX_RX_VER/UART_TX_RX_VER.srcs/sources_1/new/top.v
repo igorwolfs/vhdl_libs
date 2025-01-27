@@ -10,11 +10,11 @@ INPUTS:
 OUTPUTS:
 - TX_Serial: Tx-pin on output
 - TX_Active: Active debug pin on output 
-- 
 
 NOTE:
 - 1 bit should be sent every 1/115200 seconds
 */
+
 module top
     #(parameter DEFAULT_SEND_RATE = 750_000) // (750e3 / 100e6) * 40 = 3
 (
@@ -50,7 +50,7 @@ reg [7:0] r_TX_Byte;
 UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
 (.i_Clock(r_Clock),
  .i_TX_DV(r_TX_DV),
- .i_TX_Byte(p_btn),
+ .i_TX_Byte(r_TX_Byte),
  .o_TX_Active(p_tx_active),
  .o_TX_Serial(p_tx_serial),
  .o_TX_Done()
