@@ -14,8 +14,14 @@
 
 
 # ISSUE
-- It sends the first bit twice
-- It sends the second bit twice
-Probably because
-- we set r_btn
-- after 1 clock cycle it automatically goes into sending mode
+- When sending in default mode
+    - the rx-bytes are set to 2e
+    - then the TX_DV is set to high
+    - then the byte is set to 0 by default (maybe this shouldn't be done?)
+
+# NEXT STEP
+- Create a uart RX and TX and test it on hardware
+- Retreive data through the RX module
+- Send a hardware-stream of unprocessed signal-data
+- Perform signal processing on the data
+- Send it back through the TX module

@@ -12,64 +12,48 @@
    </db_ref_list>
    <zoom_setting>
       <ZoomStartTime time="0.000000 us"></ZoomStartTime>
-      <ZoomEndTime time="793.000001 us"></ZoomEndTime>
-      <Cursor1Time time="223.000000 us"></Cursor1Time>
+      <ZoomEndTime time="840.000001 us"></ZoomEndTime>
+      <Cursor1Time time="292.000000 us"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="177"></NameColumnWidth>
-      <ValueColumnWidth column_width="61"></ValueColumnWidth>
+      <NameColumnWidth column_width="158"></NameColumnWidth>
+      <ValueColumnWidth column_width="60"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="13" />
-   <wvobject type="array" fp_name="/BUTTON_UART_SIM/r_btn">
-      <obj_property name="ElementShortName">r_btn[3:0]</obj_property>
-      <obj_property name="ObjectShortName">r_btn[3:0]</obj_property>
-   </wvobject>
+   <WVObjectSize size="9" />
    <wvobject type="logic" fp_name="/BUTTON_UART_SIM/r_ref_clk">
       <obj_property name="ElementShortName">r_ref_clk</obj_property>
       <obj_property name="ObjectShortName">r_ref_clk</obj_property>
    </wvobject>
-   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/reset_in">
-      <obj_property name="ElementShortName">reset_in</obj_property>
-      <obj_property name="ObjectShortName">reset_in</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/r_tx_serial">
-      <obj_property name="ElementShortName">r_tx_serial</obj_property>
-      <obj_property name="ObjectShortName">r_tx_serial</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/r_tx_active">
-      <obj_property name="ElementShortName">r_tx_active</obj_property>
-      <obj_property name="ObjectShortName">r_tx_active</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/BUTTON_UART_SIM/c_DEFAULT_SEND_RATE">
-      <obj_property name="ElementShortName">c_DEFAULT_SEND_RATE[31:0]</obj_property>
-      <obj_property name="ObjectShortName">c_DEFAULT_SEND_RATE[31:0]</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/top_inst/r_Clock">
-      <obj_property name="ElementShortName">r_Clock</obj_property>
-      <obj_property name="ObjectShortName">r_Clock</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/BUTTON_UART_SIM/top_inst/count_default_send">
-      <obj_property name="ElementShortName">count_default_send[1:0]</obj_property>
-      <obj_property name="ObjectShortName">count_default_send[1:0]</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/top_inst/p_tx_active">
-      <obj_property name="ElementShortName">p_tx_active</obj_property>
-      <obj_property name="ObjectShortName">p_tx_active</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/top_inst/i_Rst_L">
-      <obj_property name="ElementShortName">i_Rst_L</obj_property>
-      <obj_property name="ObjectShortName">i_Rst_L</obj_property>
-   </wvobject>
-   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/top_inst/r_TX_DV">
-      <obj_property name="ElementShortName">r_TX_DV</obj_property>
-      <obj_property name="ObjectShortName">r_TX_DV</obj_property>
-   </wvobject>
-   <wvobject type="array" fp_name="/BUTTON_UART_SIM/top_inst/r_TX_Byte">
-      <obj_property name="ElementShortName">r_TX_Byte[7:0]</obj_property>
-      <obj_property name="ObjectShortName">r_TX_Byte[7:0]</obj_property>
+   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/top_inst/clk_reg">
+      <obj_property name="ElementShortName">clk_reg</obj_property>
+      <obj_property name="ObjectShortName">clk_reg</obj_property>
    </wvobject>
    <wvobject type="array" fp_name="/BUTTON_UART_SIM/top_inst/UART_TX_Inst/r_SM_Main">
       <obj_property name="ElementShortName">r_SM_Main[2:0]</obj_property>
       <obj_property name="ObjectShortName">r_SM_Main[2:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BUTTON_UART_SIM/r_btn_active">
+      <obj_property name="ElementShortName">r_btn_active[3:0]</obj_property>
+      <obj_property name="ObjectShortName">r_btn_active[3:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/uart_tx_data_o">
+      <obj_property name="ElementShortName">uart_tx_data_o</obj_property>
+      <obj_property name="ObjectShortName">uart_tx_data_o</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BUTTON_UART_SIM/top_inst/uart_tx_byte_reg">
+      <obj_property name="ElementShortName">uart_tx_byte_reg[7:0]</obj_property>
+      <obj_property name="ObjectShortName">uart_tx_byte_reg[7:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/uart_tx_active_o">
+      <obj_property name="ElementShortName">uart_tx_active_o</obj_property>
+      <obj_property name="ObjectShortName">uart_tx_active_o</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/BUTTON_UART_SIM/top_inst/uart_tx_dv_reg">
+      <obj_property name="ElementShortName">uart_tx_dv_reg</obj_property>
+      <obj_property name="ObjectShortName">uart_tx_dv_reg</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/BUTTON_UART_SIM/r_btn_active">
+      <obj_property name="ElementShortName">r_btn_active[3:0]</obj_property>
+      <obj_property name="ObjectShortName">r_btn_active[3:0]</obj_property>
    </wvobject>
 </wave_config>

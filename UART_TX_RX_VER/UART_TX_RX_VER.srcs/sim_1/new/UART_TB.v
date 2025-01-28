@@ -31,7 +31,7 @@ module UART_TB ();
      .o_RX_DV(w_RX_DV),
      .o_RX_Byte(w_RX_Byte)
      );
-  
+
   UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
     (.i_Clock(r_Clock),
      .i_TX_DV(r_TX_DV),
@@ -47,7 +47,7 @@ module UART_TB ();
 
   always
     #(c_CLOCK_PERIOD_NS/2) r_Clock <= !r_Clock;
-  
+
   // Main Testing:
   initial
     begin

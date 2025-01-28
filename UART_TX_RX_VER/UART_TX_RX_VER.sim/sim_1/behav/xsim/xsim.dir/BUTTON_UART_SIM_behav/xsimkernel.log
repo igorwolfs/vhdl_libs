@@ -1,4 +1,4 @@
-Running: xsim.dir/BUTTON_UART_SIM_behav/xsimk -simmode gui -wdb BUTTON_UART_SIM_behav.wdb -simrunnum 0 -socket 41321
+Running: xsim.dir/BUTTON_UART_SIM_behav/xsimk -simmode gui -wdb BUTTON_UART_SIM_behav.wdb -simrunnum 0 -socket 60537
 Design successfully loaded
-Design Loading Memory Usage: 23480 KB (Peak: 24136 KB)
+Design Loading Memory Usage: 23484 KB (Peak: 24140 KB)
 Design Loading CPU Usage: 30 ms

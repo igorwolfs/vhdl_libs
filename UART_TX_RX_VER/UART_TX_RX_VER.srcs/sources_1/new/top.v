@@ -20,25 +20,35 @@ module top
     parameter DEFAULT_CLOCK_IN = 10) // Input clock signal period in ns
 (
     //! This is needed to make sure the module is in a defined state at start!
-    input i_Rst_L,
+    input rst_n_i,
     // Buttons
-    input [3:0] p_btn,
+    input [3:0] button_i,
     // External clock
-    input p_ref_clk,
+    input clk_i,
     // tx_serial
-    output p_tx_serial,
+    output uart_tx_data_o,
     // tx_active (debug)
-    output p_tx_active,
+    output uart_tx_active_o,
     // tx_done (debug)
-    output p_tx_done
+    output uart_tx_done_o
 );
 
 // *******************************
 // BUTTONS
 localparam BUTTON_1      = 4'b0001;
+localparam BUTTON_1_CHAR = 8'h61;
+
 localparam BUTTON_2      = 4'b0010;
+localparam BUTTON_2_CHAR = 8'h62;
+
 localparam BUTTON_3      = 4'b0100;
+localparam BUTTON_3_CHAR = 8'h63;
+
 localparam BUTTON_4      = 4'b1000;
+localparam BUTTON_4_CHAR = 8'h64;
+
+localparam BUTTON_DEFAULT_CHAR = 8'h2E;
+
 
 // STATE MACHINE
 localparam STATE_BUTTON = 1'b0;
@@ -54,40 +64,39 @@ localparam c_BIT_PERIOD      = 8600;
 parameter c_CLOCK_PERIOD = (c_CLOCK_PERIOD_NS % DEFAULT_CLOCK_IN == 0) ? (c_CLOCK_PERIOD_NS / DEFAULT_CLOCK_IN) : c_CLOCK_PERIOD_NS;
 
 
-reg r_TX_DV = 0;
-reg [7:0] r_TX_Byte;
+reg [7:0] uart_tx_byte_reg;
 
 // Clock divider, should divide by c_CLOCK_PERIOD_NS
-reg [$clog2(c_CLOCK_PERIOD):0] count = 0;
-reg r_Clock = 0;
+reg [$clog2(c_CLOCK_PERIOD):0] clk_count_reg = 0;
+reg clk_reg = 0;
 
+// Checker for every how-many times there should be a default send if nothing is pressed
+reg [$clog2(DEFAULT_SEND_RATE):0] count_default_send_reg = 0;
+reg uart_tx_dv_reg;
 UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
 (
- .i_Rst_L(i_Rst_L),
- .i_Clock(r_Clock),
- .i_TX_DV(r_TX_DV),
- .i_TX_Byte(r_TX_Byte),
- .o_TX_Active(p_tx_active),
- .o_TX_Serial(p_tx_serial),
- .o_TX_Done(p_tx_done)
+ .i_Rst_L(rst_n_i),
+ .i_Clock(clk_reg),
+ .i_TX_DV(uart_tx_dv_reg),
+ .i_TX_Byte(uart_tx_byte_reg),
+ .o_TX_Active(uart_tx_active_o),
+ .o_TX_Serial(uart_tx_data_o),
+ .o_TX_Done(uart_tx_done_o)
  );
 
 
-// Checker for every how-many times there should be a default send if nothing is pressed
-reg [$clog2(c_CLOCK_PERIOD):0] count_default_send = 0;
-
 initial begin
-    count = 0;
-    r_Clock = 0;
+    clk_count_reg = 0;
+    clk_reg = 0;
 end
  // Should divide the clock by c_CLOCK_PERIOD_NS
- always @(posedge p_ref_clk) begin
-    if (count == c_CLOCK_PERIOD-1) begin
-        count <= 0;
-        r_Clock <= ~r_Clock;
+ always @(posedge clk_i) begin
+    if (clk_count_reg == c_CLOCK_PERIOD-1) begin
+        clk_count_reg <= 0;
+        clk_reg <= ~clk_reg;
     end
     else begin
-        count <= count + 1;
+        clk_count_reg <= clk_count_reg + 1;
     end
  end
 
@@ -101,65 +110,62 @@ end
             - If button: fill, wait clock cycle, continue to sending
  */
 
-always @(posedge r_Clock or negedge i_Rst_L) begin
-    if (~i_Rst_L)
+always @(posedge clk_reg or negedge rst_n_i) begin
+    if (~rst_n_i)
     begin
-        count <= 0;
-        r_Clock <= 1'b0;
-        r_TX_DV <= 1'b0;
-        count_default_send <= 0;
+        clk_count_reg <= 0;
+        clk_reg <= 1'b0;
+        uart_tx_dv_reg <= 1'b0;
+        count_default_send_reg <= 0;
     end
 
-    else if (p_tx_active == 0) begin
-        case (p_btn)
+    else if (uart_tx_active_o == 0) begin
+        case (button_i)
             BUTTON_1:
                     begin
-                    count_default_send <= 0;
-                    r_TX_Byte <= 8'h0A;
-                    r_TX_DV   <= 1'b1; // Indicate start send
+                    count_default_send_reg <= 0;
+                    uart_tx_byte_reg <= BUTTON_1_CHAR; //8'h97;
+                    uart_tx_dv_reg   <= 1'b1; // Indicate start send
                     end
             BUTTON_2:
                     begin
-                    count_default_send <= 0;
-                    r_TX_Byte <= 8'hA0;
-                    r_TX_DV   <= 1'b1; // Indicate start send
+                    count_default_send_reg <= 0;
+                    uart_tx_byte_reg <= BUTTON_2_CHAR;
+                    uart_tx_dv_reg   <= 1'b1; // Indicate start send
                     end
             BUTTON_3:
                     begin
-                    count_default_send <= 0;
-                    r_TX_Byte <= 8'h0B;
-                    r_TX_DV   <= 1'b1; // Indicate start send
+                    count_default_send_reg <= 0;
+                    uart_tx_byte_reg <= BUTTON_3_CHAR;
+                    uart_tx_dv_reg   <= 1'b1; // Indicate start send
                     end
             BUTTON_4:
                     begin
-                    count_default_send <= 0;
-                    r_TX_Byte <= 8'hB0;
-                    r_TX_DV   <= 1'b1; // Indicate start send
+                    count_default_send_reg <= 0;
+                    uart_tx_byte_reg <= BUTTON_4_CHAR;
+                    uart_tx_dv_reg   <= 1'b1; // Indicate start send
                     end
             // COUNT for 3 seconds and send a random message if nothing was sent in the meantime
             default:
                     begin
-                    r_TX_Byte <= 8'h0;
+                    if (count_default_send_reg < DEFAULT_SEND_RATE-1)
+                        begin
+                            count_default_send_reg <= count_default_send_reg + 1;
+                        end
+                    else
+                        begin
+                            count_default_send_reg <= 0;
+                            uart_tx_byte_reg <= BUTTON_DEFAULT_CHAR; // Send dot
+                            uart_tx_dv_reg   <= 1'b1; // Indicate start send
+                        end
                     end
-                    // begin
-                    // if (count_default_send < DEFAULT_SEND_RATE)
-                    //     begin
-                    //         count_default_send <= count_default_send + 1;
-                    //     end
-                    // else
-                    //     begin
-                    //         count_default_send <= 0;
-                    //         r_TX_Byte <= 8'h22;
-                    //         r_TX_DV   <= 1'b1; // Indicate start send
-                    //     end
-                    // end
         endcase
     end
     // Future: make sure to end this only when the TX-done signal was raised
     else begin
-        if (r_TX_DV == 1'b1)
+        if (uart_tx_dv_reg == 1'b1)
         begin
-            r_TX_DV <= 1'b0;
+            uart_tx_dv_reg <= 1'b0;
         end
     end
 end
