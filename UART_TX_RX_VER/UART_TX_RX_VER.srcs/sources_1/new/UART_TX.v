@@ -1,7 +1,8 @@
 `timescale 1ns/10ps
 
-module UART_TX 
-  #(parameter CLKS_PER_BIT = 217)
+module UART_TX
+  #(parameter CLKS_PER_BIT = 217,
+    parameter DEFAULT_CLOCK_IN = 10)
   (
    input       i_Rst_L,
    input       i_Clock,
@@ -23,7 +24,6 @@ module UART_TX
   reg [2:0] r_Bit_Index;
   reg [7:0] r_TX_Data;
 
-
   // Purpose: Control TX state machine
   always @(posedge i_Clock or negedge i_Rst_L)
   begin
@@ -33,7 +33,6 @@ module UART_TX
     end
     else
     begin
-
       o_TX_Done <= 1'b0; // default assignment
 
       case (r_SM_Main)
@@ -50,9 +49,11 @@ module UART_TX
             r_SM_Main   <= TX_START_BIT;
           end
           else
+            begin
             r_SM_Main <= IDLE;
             o_TX_Active <= 1'b0; // Set to default low on idle state
-        end // case: IDLE
+            end
+          end // case: IDLE
 
 
       // Send out Start Bit. Start bit = 0
@@ -74,7 +75,7 @@ module UART_TX
         end // case: TX_START_BIT
 
 
-      // Wait CLKS_PER_BIT-1 clock cycles for data bits to finish         
+      // Wait CLKS_PER_BIT-1 clock cycles for data bits to finish
       TX_DATA_BITS :
         begin
           // It should transmit a new bit every 8.64 us
@@ -133,8 +134,9 @@ module UART_TX
 
 
       default :
+        begin
         r_SM_Main <= IDLE;
-
+        end
     endcase
     end // else: !if(~i_Rst_L)
   end // always @ (posedge i_Clock or negedge i_Rst_L)

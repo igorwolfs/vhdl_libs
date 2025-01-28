@@ -9,6 +9,7 @@ module BUTTON_UART_SIM();
 
     // Test buton input
     reg [3:0] r_btn = 4'b0000;
+    reg [3:0] r_btn_active = 4'b0001;
     // reference clock (should simply be 1 ns)
     parameter c_DEFAULT_SEND_RATE = 750_000;
     reg r_ref_clk = 0;
@@ -25,38 +26,34 @@ module BUTTON_UART_SIM();
      .p_tx_active(r_tx_active)
     );
 
-    always 
+    task do_reset;
     begin
-        #5;
-        r_ref_clk = ~r_ref_clk;
-    end // Clock period of 10 ns (100 MHz)
+        reset_in <= 1'b1;
+        #160;
+        reset_in <= 1'b0;
+        #160;
+        reset_in <= 1'b1;
+        #160;
+    end
+    endtask
+
+    always
+        #5 r_ref_clk = ~r_ref_clk; // Clock period of 10 ns (100 MHz)
 
     initial
         begin
-            // START BY DEFINING THE STATE
-            reset_in <= 1'b1;
-            #20
-            reset_in <= 1'b0;
-            #20
-            reset_in <= 1'b1;
-            #100;
-            r_btn <= 4'b0001;
-            // Wait until tx is done
-            @(negedge r_tx_active);
-            #100;
-            r_btn <= 4'b0010;
-            @(negedge r_tx_active);
-            #100;
-            r_btn <= 4'b0100;
-            @(negedge r_tx_active);
-            #100;
-            r_btn <= 4'b1000;
-            #100;
-            @(negedge r_tx_active);
-            r_btn <= 4'b0000;
-            #100;
-            @(negedge r_tx_active);
-            #100;
+            do_reset;
+            #1600
+            for (integer i=0; i<4; i = i + 1)
+            begin
+                $display("BUTTON %d", i);
+                r_btn <= r_btn_active;
+                @(negedge r_tx_active);
+                r_btn <= 4'b0;
+                #160;
+                r_btn_active = (r_btn_active << 1);
+            end
+            #1600;
             $finish;
         end
 endmodule

@@ -9,14 +9,15 @@ INPUTS:
 
 OUTPUTS:
 - TX_Serial: Tx-pin on output
-- TX_Active: Active debug pin on output 
+- TX_Active: Active debug pin on output
 
 NOTE:
 - 1 bit should be sent every 1/115200 seconds
 */
 
 module top
-    #(parameter DEFAULT_SEND_RATE = 750_000) // (750e3 / 100e6) * 40 = 3
+    #(parameter DEFAULT_SEND_RATE = 750_000, // (750e3 / 100e6) * 40 = 3
+    parameter DEFAULT_CLOCK_IN = 10) // Input clock signal period in ns
 (
     //! This is needed to make sure the module is in a defined state at start!
     input i_Rst_L,
@@ -27,15 +28,17 @@ module top
     // tx_serial
     output p_tx_serial,
     // tx_active (debug)
-    output p_tx_active
+    output p_tx_active,
+    // tx_done (debug)
+    output p_tx_done
 );
 
 // *******************************
 // BUTTONS
-localparam BUTTON_1      = 3'b1000;
-localparam BUTTON_2      = 3'b0100;
-localparam BUTTON_3      = 3'b0010;
-localparam BUTTON_4      = 3'b0001;
+localparam BUTTON_1      = 4'b0001;
+localparam BUTTON_2      = 4'b0010;
+localparam BUTTON_3      = 4'b0100;
+localparam BUTTON_4      = 4'b1000;
 
 // STATE MACHINE
 localparam STATE_BUTTON = 1'b0;
@@ -46,11 +49,16 @@ localparam c_CLOCK_PERIOD_NS = 20;
 localparam c_CLKS_PER_BIT    = 217;
 localparam c_BIT_PERIOD      = 8600;
 
+// calculate actual clock period
+// Make sure to set the clock-period of UART as absolute.
+parameter c_CLOCK_PERIOD = (c_CLOCK_PERIOD_NS % DEFAULT_CLOCK_IN == 0) ? (c_CLOCK_PERIOD_NS / DEFAULT_CLOCK_IN) : c_CLOCK_PERIOD_NS;
+
+
 reg r_TX_DV = 0;
 reg [7:0] r_TX_Byte;
 
 // Clock divider, should divide by c_CLOCK_PERIOD_NS
-reg [$clog2(c_CLOCK_PERIOD_NS):0] count = 0;
+reg [$clog2(c_CLOCK_PERIOD):0] count = 0;
 reg r_Clock = 0;
 
 UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
@@ -61,12 +69,12 @@ UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
  .i_TX_Byte(r_TX_Byte),
  .o_TX_Active(p_tx_active),
  .o_TX_Serial(p_tx_serial),
- .o_TX_Done()
+ .o_TX_Done(p_tx_done)
  );
 
 
 // Checker for every how-many times there should be a default send if nothing is pressed
-reg [$clog2(c_CLOCK_PERIOD_NS):0] count_default_send = 0;
+reg [$clog2(c_CLOCK_PERIOD):0] count_default_send = 0;
 
 initial begin
     count = 0;
@@ -74,7 +82,7 @@ initial begin
 end
  // Should divide the clock by c_CLOCK_PERIOD_NS
  always @(posedge p_ref_clk) begin
-    if (count == c_CLOCK_PERIOD_NS-1) begin
+    if (count == c_CLOCK_PERIOD-1) begin
         count <= 0;
         r_Clock <= ~r_Clock;
     end
@@ -104,22 +112,25 @@ always @(posedge r_Clock or negedge i_Rst_L) begin
 
     else if (p_tx_active == 0) begin
         case (p_btn)
-            BUTTON_1: begin
+            BUTTON_1:
+                    begin
                     count_default_send <= 0;
                     r_TX_Byte <= 8'h0A;
                     r_TX_DV   <= 1'b1; // Indicate start send
-                end
-            BUTTON_2: begin
+                    end
+            BUTTON_2:
+                    begin
                     count_default_send <= 0;
                     r_TX_Byte <= 8'hA0;
                     r_TX_DV   <= 1'b1; // Indicate start send
-                end
-            BUTTON_3: begin
+                    end
+            BUTTON_3:
+                    begin
                     count_default_send <= 0;
                     r_TX_Byte <= 8'h0B;
                     r_TX_DV   <= 1'b1; // Indicate start send
-                end
-            BUTTON_4: 
+                    end
+            BUTTON_4:
                     begin
                     count_default_send <= 0;
                     r_TX_Byte <= 8'hB0;
@@ -128,21 +139,25 @@ always @(posedge r_Clock or negedge i_Rst_L) begin
             // COUNT for 3 seconds and send a random message if nothing was sent in the meantime
             default:
                     begin
-                    if (count_default_send < DEFAULT_SEND_RATE)
-                        begin
-                        count_default_send <= count_default_send + 1;
-                        end
-                    else
-                        begin
-                        count_default_send <= 0;
-                        r_TX_Byte <= 8'h22;
-                        end
-                end
+                    r_TX_Byte <= 8'h0;
+                    end
+                    // begin
+                    // if (count_default_send < DEFAULT_SEND_RATE)
+                    //     begin
+                    //         count_default_send <= count_default_send + 1;
+                    //     end
+                    // else
+                    //     begin
+                    //         count_default_send <= 0;
+                    //         r_TX_Byte <= 8'h22;
+                    //         r_TX_DV   <= 1'b1; // Indicate start send
+                    //     end
+                    // end
         endcase
     end
     // Future: make sure to end this only when the TX-done signal was raised
     else begin
-        if (r_TX_DV == 1'b1) 
+        if (r_TX_DV == 1'b1)
         begin
             r_TX_DV <= 1'b0;
         end

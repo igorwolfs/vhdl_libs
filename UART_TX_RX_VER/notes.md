@@ -14,5 +14,8 @@
 
 
 # ISSUE
-- It start sending h0b
-- It sends this again and again every millisecond approximately
+- It sends the first bit twice
+- It sends the second bit twice
+Probably because
+- we set r_btn
+- after 1 clock cycle it automatically goes into sending mode
