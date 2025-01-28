@@ -6,18 +6,18 @@ module UART_TX
    input       i_Rst_L,
    input       i_Clock,
    input       i_TX_DV,
-   input [7:0] i_TX_Byte, 
+   input [7:0] i_TX_Byte,
    output reg  o_TX_Active,
    output reg  o_TX_Serial,
    output reg  o_TX_Done
    );
- 
+
   localparam IDLE         = 3'b000;
   localparam TX_START_BIT = 3'b001;
   localparam TX_DATA_BITS = 3'b010;
   localparam TX_STOP_BIT  = 3'b011;
   localparam CLEANUP      = 3'b100;
-  
+
   reg [2:0] r_SM_Main;
   reg [$clog2(CLKS_PER_BIT):0] r_Clock_Count;
   reg [2:0] r_Bit_Index;
@@ -42,7 +42,6 @@ module UART_TX
           o_TX_Serial   <= 1'b1;         // Drive Line High for Idle
           r_Clock_Count <= 0;
           r_Bit_Index   <= 0;
-          
           if (i_TX_DV == 1'b1)
           begin
             // Starting signal is given, set TX_data, active out and state-machine
@@ -52,14 +51,15 @@ module UART_TX
           end
           else
             r_SM_Main <= IDLE;
+            o_TX_Active <= 1'b0; // Set to default low on idle state
         end // case: IDLE
-      
-      
+
+
       // Send out Start Bit. Start bit = 0
       TX_START_BIT :
         begin
           o_TX_Serial <= 1'b0;
-          
+
           // Wait CLKS_PER_BIT-1 clock cycles for start bit to finish (216 x 40 ns = 8.640 us)
           if (r_Clock_Count < CLKS_PER_BIT-1)
           begin
@@ -72,14 +72,14 @@ module UART_TX
             r_SM_Main     <= TX_DATA_BITS;
           end
         end // case: TX_START_BIT
-      
-      
+
+
       // Wait CLKS_PER_BIT-1 clock cycles for data bits to finish         
       TX_DATA_BITS :
         begin
           // It should transmit a new bit every 8.64 us
           o_TX_Serial <= r_TX_Data[r_Bit_Index];
-          
+
           if (r_Clock_Count < CLKS_PER_BIT-1)
           begin
             r_Clock_Count <= r_Clock_Count + 1;
@@ -88,7 +88,7 @@ module UART_TX
           else
           begin
             r_Clock_Count <= 0;
-            
+
             // Check if we have sent out all bits
             if (r_Bit_Index < 7)
             begin
@@ -100,15 +100,15 @@ module UART_TX
               r_Bit_Index <= 0;
               r_SM_Main   <= TX_STOP_BIT;
             end
-          end 
+          end
         end // case: TX_DATA_BITS
-      
-      
+
+
       // Send out Stop bit.  Stop bit = 1
       TX_STOP_BIT :
         begin
           o_TX_Serial <= 1'b1;
-          
+
           // Wait CLKS_PER_BIT-1 clock cycles for Stop bit to finish
           if (r_Clock_Count < CLKS_PER_BIT-1)
           begin
@@ -121,23 +121,21 @@ module UART_TX
             r_Clock_Count <= 0;
             r_SM_Main     <= CLEANUP;
             o_TX_Active   <= 1'b0;
-          end 
+          end
         end // case: TX_STOP_BIT
-      
-      
+
+
       // Stay here 1 clock
       CLEANUP :
         begin
           r_SM_Main <= IDLE;
         end
-      
-      
+
+
       default :
         r_SM_Main <= IDLE;
-      
+
     endcase
     end // else: !if(~i_Rst_L)
   end // always @ (posedge i_Clock or negedge i_Rst_L)
-
-  
 endmodule

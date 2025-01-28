@@ -7,16 +7,19 @@
 
 module BUTTON_UART_SIM();
 
-    // Test buton input 
+    // Test buton input
     reg [3:0] r_btn = 4'b0000;
     // reference clock (should simply be 1 ns)
     parameter c_DEFAULT_SEND_RATE = 750_000;
     reg r_ref_clk = 0;
+    reg reset_in = 1'b0;
     wire r_tx_serial;
     wire r_tx_active;
 
     top #(.DEFAULT_SEND_RATE(c_DEFAULT_SEND_RATE)) top_inst
-    (.p_btn(r_btn),
+    (
+     .i_Rst_L(reset_in),
+     .p_btn(r_btn),
      .p_ref_clk(r_ref_clk),
      .p_tx_serial(r_tx_serial),
      .p_tx_active(r_tx_active)
@@ -30,6 +33,12 @@ module BUTTON_UART_SIM();
 
     initial
         begin
+            // START BY DEFINING THE STATE
+            reset_in <= 1'b1;
+            #20
+            reset_in <= 1'b0;
+            #20
+            reset_in <= 1'b1;
             #100;
             r_btn <= 4'b0001;
             // Wait until tx is done

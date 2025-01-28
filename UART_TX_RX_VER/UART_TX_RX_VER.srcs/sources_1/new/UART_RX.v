@@ -29,14 +29,14 @@ module UART_RX
   localparam RX_DATA_BITS = 3'b010;
   localparam RX_STOP_BIT  = 3'b011;
   localparam CLEANUP      = 3'b100;
-  
+
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
   reg [$clog2(CLKS_PER_BIT)-1:0] r_Clock_Count;
   reg [2:0] r_Bit_Index; // 3 bits -> max 8 states
-  reg [2:0] r_SM_Main; 
+  reg [2:0] r_SM_Main;
   reg r_RX_Data_R;
   reg r_RX_Data;
-  
+
   // double flipflop
   always @(posedge i_Clock)
   begin
@@ -44,7 +44,6 @@ module UART_RX
      r_RX_Data <= r_RX_Data_R;
   end
 
-  
   // Purpose: Control RX state machine
   always @(posedge i_Clock or negedge i_Rst_L)
   begin
@@ -62,13 +61,13 @@ module UART_RX
           o_RX_DV       <= 1'b0;
           r_Clock_Count <= 0;
           r_Bit_Index   <= 0;
-          
+
           if (r_RX_Data == 1'b0)          // Start bit detected
             r_SM_Main <= RX_START_BIT;
           else
             r_SM_Main <= IDLE;
         end
-      
+
       // Check middle of start bit to make sure it's still low
       RX_START_BIT :
         begin
@@ -88,8 +87,8 @@ module UART_RX
             r_SM_Main     <= RX_START_BIT;
           end
         end // case: RX_START_BIT
-      
-      
+
+
       // Wait CLKS_PER_BIT-1 clock cycles to sample serial data
       RX_DATA_BITS :
         begin

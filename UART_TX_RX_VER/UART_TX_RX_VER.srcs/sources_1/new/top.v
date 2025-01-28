@@ -18,6 +18,8 @@ NOTE:
 module top
     #(parameter DEFAULT_SEND_RATE = 750_000) // (750e3 / 100e6) * 40 = 3
 (
+    //! This is needed to make sure the module is in a defined state at start!
+    input i_Rst_L,
     // Buttons
     input [3:0] p_btn,
     // External clock
@@ -40,15 +42,21 @@ localparam STATE_BUTTON = 1'b0;
 localparam STATE_SEND   = 1'b1;
 // *******************************
 
-parameter c_CLOCK_PERIOD_NS = 40;
-parameter c_CLKS_PER_BIT    = 217;
-parameter c_BIT_PERIOD      = 8600;
+localparam c_CLOCK_PERIOD_NS = 20;
+localparam c_CLKS_PER_BIT    = 217;
+localparam c_BIT_PERIOD      = 8600;
 
 reg r_TX_DV = 0;
 reg [7:0] r_TX_Byte;
-  
+
+// Clock divider, should divide by c_CLOCK_PERIOD_NS
+reg [$clog2(c_CLOCK_PERIOD_NS):0] count = 0;
+reg r_Clock = 0;
+
 UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
-(.i_Clock(r_Clock),
+(
+ .i_Rst_L(i_Rst_L),
+ .i_Clock(r_Clock),
  .i_TX_DV(r_TX_DV),
  .i_TX_Byte(r_TX_Byte),
  .o_TX_Active(p_tx_active),
@@ -56,18 +64,19 @@ UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
  .o_TX_Done()
  );
 
- // Clock divider, should divide by c_CLOCK_PERIOD_NS
-reg [$clog2(c_CLOCK_PERIOD_NS):0] count = 0;
-reg r_Clock = 0;
 
 // Checker for every how-many times there should be a default send if nothing is pressed
 reg [$clog2(c_CLOCK_PERIOD_NS):0] count_default_send = 0;
 
+initial begin
+    count = 0;
+    r_Clock = 0;
+end
  // Should divide the clock by c_CLOCK_PERIOD_NS
  always @(posedge p_ref_clk) begin
-    if (count == c_CLOCK_PERIOD_NS) begin
+    if (count == c_CLOCK_PERIOD_NS-1) begin
         count <= 0;
-        r_Clock = ~r_Clock;
+        r_Clock <= ~r_Clock;
     end
     else begin
         count <= count + 1;
@@ -83,53 +92,61 @@ reg [$clog2(c_CLOCK_PERIOD_NS):0] count_default_send = 0;
     - The buffer is not full -> we check the button switch-case
             - If button: fill, wait clock cycle, continue to sending
  */
- always @(posedge r_Clock) begin
-    // MAYBE REPLACE THIS BY w_TX_ACTIVE??? 
-    if (p_tx_active == 0) begin
+
+always @(posedge r_Clock or negedge i_Rst_L) begin
+    if (~i_Rst_L)
+    begin
+        count <= 0;
+        r_Clock <= 1'b0;
+        r_TX_DV <= 1'b0;
+        count_default_send <= 0;
+    end
+
+    else if (p_tx_active == 0) begin
         case (p_btn)
-            BUTTON_1:
-                begin
+            BUTTON_1: begin
                     count_default_send <= 0;
                     r_TX_Byte <= 8'h0A;
                     r_TX_DV   <= 1'b1; // Indicate start send
                 end
-            BUTTON_2:
-                begin
+            BUTTON_2: begin
                     count_default_send <= 0;
                     r_TX_Byte <= 8'hA0;
                     r_TX_DV   <= 1'b1; // Indicate start send
                 end
-            BUTTON_3:
-                begin
+            BUTTON_3: begin
                     count_default_send <= 0;
                     r_TX_Byte <= 8'h0B;
                     r_TX_DV   <= 1'b1; // Indicate start send
                 end
-            BUTTON_4:
-                begin
+            BUTTON_4: 
+                    begin
                     count_default_send <= 0;
                     r_TX_Byte <= 8'hB0;
                     r_TX_DV   <= 1'b1; // Indicate start send
-                end
+                    end
             // COUNT for 3 seconds and send a random message if nothing was sent in the meantime
             default:
-                begin
-                    if (count_default_send < DEFAULT_SEND_RATE) begin
+                    begin
+                    if (count_default_send < DEFAULT_SEND_RATE)
+                        begin
                         count_default_send <= count_default_send + 1;
-                    end
-                    else begin
+                        end
+                    else
+                        begin
                         count_default_send <= 0;
-                        r_TX_Byte <= 8'h22; 
-                    end
+                        r_TX_Byte <= 8'h22;
+                        end
                 end
         endcase
     end
+    // Future: make sure to end this only when the TX-done signal was raised
     else begin
-        if (r_TX_DV == 1'b1) begin
-            r_TX_DV <= 1'b0; 
+        if (r_TX_DV == 1'b1) 
+        begin
+            r_TX_DV <= 1'b0;
         end
     end
-        
 end
 
 endmodule

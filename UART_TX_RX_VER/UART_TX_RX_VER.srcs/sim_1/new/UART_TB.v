@@ -17,7 +17,7 @@ module UART_TB ();
   parameter c_CLOCK_PERIOD_NS = 40;
   parameter c_CLKS_PER_BIT    = 217;
   parameter c_BIT_PERIOD      = 8600;
-  
+
   reg r_Clock = 0;
   reg r_TX_DV = 0;
   wire w_TX_Active, w_UART_Line;
