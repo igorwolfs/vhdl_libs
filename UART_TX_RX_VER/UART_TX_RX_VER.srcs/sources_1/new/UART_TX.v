@@ -25,19 +25,24 @@ module UART_TX
   reg [7:0] r_TX_Data;
 
   // Purpose: Control TX state machine
-  always @(posedge i_Clock or negedge i_Rst_L)
+  //! WARNING: errors here might happen due to asynchronous reset, consider removing the i_Rst_L to make sure the reset happens synchronously.
+  //always @(posedge i_Clock or negedge i_Rst_L)
+  always @(posedge i_Clock)
   begin
     if (~i_Rst_L)
     begin
-      r_SM_Main <= 3'b000; // Set to idle
+
+      r_SM_Main <= 3'b000;  // Set to  IDLE
+      o_TX_Active <= 1'b0;
+      o_TX_Serial <= 1'b1;  // << Add a definite reset value here!
+      o_TX_Done   <= 1'b0;
     end
     else
     begin
-      o_TX_Done <= 1'b0; // default assignment
-
       case (r_SM_Main)
       IDLE :
         begin
+          o_TX_Done <= 1'b0; // default assignment
           o_TX_Serial   <= 1'b1;         // Drive Line High for Idle
           r_Clock_Count <= 0;
           r_Bit_Index   <= 0;
@@ -59,6 +64,7 @@ module UART_TX
       // Send out Start Bit. Start bit = 0
       TX_START_BIT :
         begin
+          o_TX_Done <= 1'b0; // default assignment
           o_TX_Serial <= 1'b0;
 
           // Wait CLKS_PER_BIT-1 clock cycles for start bit to finish (216 x 40 ns = 8.640 us)
@@ -78,6 +84,7 @@ module UART_TX
       // Wait CLKS_PER_BIT-1 clock cycles for data bits to finish
       TX_DATA_BITS :
         begin
+          o_TX_Done <= 1'b0; // default assignment
           // It should transmit a new bit every 8.64 us
           o_TX_Serial <= r_TX_Data[r_Bit_Index];
 

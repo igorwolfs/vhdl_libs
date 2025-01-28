@@ -16,8 +16,7 @@ NOTE:
 */
 
 module top
-    #(parameter DEFAULT_SEND_RATE = 750_000, // (750e3 / 100e6) * 40 = 3
-    parameter DEFAULT_CLOCK_IN = 10) // Input clock signal period in ns
+    #(parameter DEFAULT_SEND_RATE = 750_000)
 (
     //! This is needed to make sure the module is in a defined state at start!
     input rst_n_i,
@@ -54,21 +53,19 @@ localparam BUTTON_DEFAULT_CHAR = 8'h2E;
 localparam STATE_BUTTON = 1'b0;
 localparam STATE_SEND   = 1'b1;
 // *******************************
-
-localparam c_CLOCK_PERIOD_NS = 20;
+localparam DEFAULT_CLOCK_IN = 10; // DEFAULT INPUT CLOCK PERIOD
+localparam CLOCK_PERIOD_NS = 20;
 localparam c_CLKS_PER_BIT    = 217;
 localparam c_BIT_PERIOD      = 8600;
-
-// calculate actual clock period
-// Make sure to set the clock-period of UART as absolute.
-parameter c_CLOCK_PERIOD = (c_CLOCK_PERIOD_NS % DEFAULT_CLOCK_IN == 0) ? (c_CLOCK_PERIOD_NS / DEFAULT_CLOCK_IN) : c_CLOCK_PERIOD_NS;
+// Actual period used
+localparam CLK_PERIOD = (CLOCK_PERIOD_NS % DEFAULT_CLOCK_IN == 0) ? (CLOCK_PERIOD_NS / DEFAULT_CLOCK_IN) : CLOCK_PERIOD_NS;
 
 
 reg [7:0] uart_tx_byte_reg;
 
-// Clock divider, should divide by c_CLOCK_PERIOD_NS
-reg [$clog2(c_CLOCK_PERIOD):0] clk_count_reg = 0;
-reg clk_reg = 0;
+// Clock divider, should divide by CLOCK_PERIOD_NS
+reg [$clog2(CLK_PERIOD):0] clk_count_reg;
+reg clk_reg;
 
 // Checker for every how-many times there should be a default send if nothing is pressed
 reg [$clog2(DEFAULT_SEND_RATE):0] count_default_send_reg = 0;
@@ -84,14 +81,19 @@ UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
  .o_TX_Done(uart_tx_done_o)
  );
 
-
-initial begin
-    clk_count_reg = 0;
-    clk_reg = 0;
-end
- // Should divide the clock by c_CLOCK_PERIOD_NS
- always @(posedge clk_i) begin
-    if (clk_count_reg == c_CLOCK_PERIOD-1) begin
+ // Should divide the clock by CLOCK_PERIOD_NS
+/*
+ NOTE: Inputs should be driven only by a single signal.
+Which is why we wrote the reset signal in both always-blocks.
+**/
+ always @(posedge clk_i or negedge rst_n_i) begin
+    if (~rst_n_i)
+    begin
+        clk_count_reg <= 0;
+        clk_reg <= 1'b0;
+    end
+    else if (clk_count_reg >= CLK_PERIOD-1)
+    begin
         clk_count_reg <= 0;
         clk_reg <= ~clk_reg;
     end
@@ -113,8 +115,6 @@ end
 always @(posedge clk_reg or negedge rst_n_i) begin
     if (~rst_n_i)
     begin
-        clk_count_reg <= 0;
-        clk_reg <= 1'b0;
         uart_tx_dv_reg <= 1'b0;
         count_default_send_reg <= 0;
     end

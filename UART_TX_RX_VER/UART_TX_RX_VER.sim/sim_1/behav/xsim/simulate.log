@@ -1,0 +1,10 @@
+Time resolution is 1 ps
+BUTTON           0
+BUTTON           1
+BUTTON           2
+BUTTON           3
+BUTTON           0
+BUTTON           1
+BUTTON           2
+BUTTON           3
+$finish called at time : 727935 ns : File "/home/iwolfs/Work/Projects/fpga_project/xilinx/xilinx-experiments/UART_TX_RX_VER/UART_TX_RX_VER.srcs/sim_1/new/BUTTON_UART_SIM.v" Line 71
