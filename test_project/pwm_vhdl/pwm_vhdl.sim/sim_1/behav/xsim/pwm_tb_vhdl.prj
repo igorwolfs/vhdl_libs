@@ -1,6 +1,0 @@
-# compile vhdl design source files
-vhdl xil_defaultlib  \
-"../../../../pwm_vhdl.srcs/sources_1/new/pwm.vhdl" \
-
-# Do not sort compile order
-nosort
