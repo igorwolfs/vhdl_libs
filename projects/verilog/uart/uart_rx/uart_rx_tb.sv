@@ -10,7 +10,7 @@ module uart_rx_tb();
     localparam OVERSAMPLING_DIV = 8;
     localparam BAUD_OVERSAMPLED_TOGGLE_PERIOD = CLK_FREQ / (2 * BAUD_RATE * OVERSAMPLING_DIV) - 1;
     localparam BAUD_RATE_PERIOD = BAUD_OVERSAMPLED_TOGGLE_PERIOD * OVERSAMPLING_DIV * 2;
-       
+
     // BITS
     localparam DATA_BITS = 8;
     // TESTS

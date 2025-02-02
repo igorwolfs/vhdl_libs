@@ -6,14 +6,14 @@
 PARAMETERS:
 - OVERSAMPLING RATE (There should be an extra counter here that is used for oversamplign the start bit)
 Inputs:
-- Input: rx_serial_in
-- Input: Clock from baud generator
-- Input: nrst_in (reset)
+- rx_serial_in
+- Clock from baud generator
+- nrst_in (reset)
 Outputs:
-- Ouput: rx_data_out (5-9 data-bist)
-- Output: data_ready (1 bit) -> signalling that data is ready to be read
+- rx_data_out (5-9 data-bist)
+- data_ready (1 bit) -> signalling that data is ready to be read
 
-UART Working
+# UART RX Working
 1. RX must be pulled high - default state
 2. Start bit
     - High to low for 1 clock cycle -> UART Should sample this until it detects a low bit
@@ -47,7 +47,7 @@ module uart_rx
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
   reg [$clog2(OVERSAMPLING)-1:0] cnt_baud_clk;
 
-  reg [$clog2(DATA_BITS-1):0] data_bit_idx; // 3 bits -> max 8 states
+  reg [$clog2(DATA_BITS-1):0] data_bits_idx; // 3 bits -> max 8 states
   reg [1:0] SM_next_state;
   reg rx_data_unstable;
   reg rx_data_stable;
@@ -70,7 +70,7 @@ module uart_rx
       SM_next_state = SM_idle_s;
       data_rdy_out = 1'b0;
       rx_data_out = 0;
-      data_bit_idx <= 0;
+      data_bits_idx <= 0;
     end
     else
     begin
@@ -108,13 +108,11 @@ module uart_rx
       begin // <<< SM_rx_data_s
         if (cnt_baud_clk == OVERSAMPLING-1)
           begin
-          rx_data_out[data_bit_idx] <= rx_data_stable;
-          data_bit_idx <= data_bit_idx + 1;
+          rx_data_out[data_bits_idx] <= rx_data_stable;
+          data_bits_idx <= data_bits_idx + 1;
           cnt_baud_clk <= 0;
-          if (data_bit_idx == (DATA_BITS - 1))
-            begin
+          if (data_bits_idx == (DATA_BITS - 1))
             SM_next_state <= SM_rx_stop_s;
-            end
           end
         else
           begin
@@ -127,7 +125,7 @@ module uart_rx
           begin
           data_rdy_out <= 1'b1;
           cnt_baud_clk <= 0;
-          data_bit_idx <= 0;
+          data_bits_idx <= 0;
           SM_next_state <= SM_idle_s;
           end
         else

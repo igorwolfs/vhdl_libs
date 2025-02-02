@@ -1,149 +1,150 @@
 `timescale 1ns/10ps
 
+/**
+
+# Inputs and outputs
+PARAMETERS
+- OVERSAMPLING RATE
+- DATA_BITS
+Inputs:
+- tx_data_in
+- tx nreset in
+- tx_rdy_in (toggle sending of data set in tx_data_in)
+- clk_in (clock, requested baud rate / OVERSAMPLING RATE)
+Outputs:
+- tx_serial_out (serial data line out)
+- tx_rdy_out (data is sent)
+
+# UART TX WORKING
+1. tx_data_in is set
+2. tx_rdy_in is toggled
+3. start bit is sent (bit_duration = clk_in * OVERSAMPLING_RATE)
+4. data-bits are sent
+5. parity bits are sent
+6. stop-bit is sent
+7. tx_rdy_out is set
+
+# States
+- Idle state:
+  - wait for tx rdy_in -> transition to start bit
+- Start state:
+  - toggle tx_serial, wait bit_duration -> transition to data state
+- Data state:
+  - toggle tx serial for DATA_BITS
+  - when done, go to stop-state
+- Stop state:
+  - toggle for DATA_BITS
+  - When done -> assert, tx_rdy_out, assert idle_state
+*/
+
 module uart_tx
-  #(parameter CLKS_PER_BIT = 217)
+  #(parameter OVERSAMPLING = 8,
+    parameter DATA_BITS = 8)
   (
-   input       i_Rst_L,
-   input       i_Clock,
-   input       i_TX_DV,
-   input [7:0] i_TX_Byte,
-   output reg  o_TX_Active,
-   output reg  o_TX_Serial,
-   output reg  o_TX_Done
+   input       nrst_in,
+   input       clk_in,
+   input       data_rdy_in,
+   input [7:0] tx_data_in,
+   output reg  tx_serial_out,
+   output reg  tx_busy_out,
+   output reg  tx_done_out
   );
 
-  localparam IDLE         = 3'b000;
-  localparam TX_START_BIT = 3'b001;
-  localparam TX_DATA_BITS = 3'b010;
-  localparam TX_STOP_BIT  = 3'b011;
-  localparam CLEANUP      = 3'b100;
+  localparam SM_idle_s     = 2'b00;
+  localparam SM_tx_start_s = 2'b01;
+  localparam SM_tx_data_s  = 2'b10;
+  localparam SM_tx_stop_s  = 2'b11;
 
-  reg [2:0] r_SM_Main;
-  reg [$clog2(CLKS_PER_BIT):0] r_Clock_Count;
-  reg [2:0] r_Bit_Index;
-  reg [7:0] r_TX_Data;
+  reg [$clog2(OVERSAMPLING)-1:0] cnt_baud_clk;
+
+  reg [2:0] SM_next_state;
+  reg [$clog2(DATA_BITS-1):0] data_bits_idx; // 3 bits -> max 8 states
+  reg [DATA_BITS-1:0] data_bits; // 3 bits -> max 8 states
 
   // Purpose: Control TX state machine
-  //! WARNING: errors here might happen due to asynchronous reset, consider removing the i_Rst_L to make sure the reset happens synchronously.
-  //always @(posedge i_Clock or negedge i_Rst_L)
-  always @(posedge i_Clock)
+  //! WARNING: errors here might happen due to asynchronous reset, consider removing the nrst_in to make sure the reset happens synchronously.
+  //always @(posedge clk_in or negedge nrst_in)
+  always @(posedge clk_in)
   begin
-    if (~i_Rst_L)
+    if (~nrst_in)
     begin
-
-      r_SM_Main <= 3'b000;  // Set to  IDLE
-      o_TX_Active <= 1'b0;
-      o_TX_Serial <= 1'b1;  // << Add a definite reset value here!
-      o_TX_Done   <= 1'b0;
+      SM_next_state <= SM_idle_s;  // Set to  SM_idle_s
+      tx_busy_out <= 1'b0;
+      tx_serial_out <= 1'b1;  // tx is 1 by default
+      tx_done_out   <= 1'b0;
+      cnt_baud_clk <= 0;
     end
     else
     begin
-      case (r_SM_Main)
-      IDLE :
-        begin
-          o_TX_Done <= 1'b0; // default assignment
-          o_TX_Serial   <= 1'b1;         // Drive Line High for Idle
-          r_Clock_Count <= 0;
-          r_Bit_Index   <= 0;
-          if (i_TX_DV == 1'b1)
+      case (SM_next_state)
+      SM_idle_s :
+        begin // >>> SM_idle_s
+          tx_serial_out   <= 1'b1;         // Drive Line High for SM_idle_s
+          tx_done_out     <= 0;
+          cnt_baud_clk    <= 0;
+          if (data_rdy_in == 1'b1)
           begin
-            // Starting signal is given, set TX_data, active out and state-machine
-            o_TX_Active <= 1'b1;
-            r_TX_Data   <= i_TX_Byte;
-            r_SM_Main   <= TX_START_BIT;
+            tx_busy_out   <= 1'b1;
+            data_bits    <= tx_data_in;   // Save data in internal register in case altering
+            SM_next_state <= SM_tx_start_s;
           end
           else
+            tx_busy_out   <= 1'b0;
+          end // <<< SM_idle_s
+
+
+      SM_tx_start_s :
+        begin // >>> SM_tx_start_s
+          tx_done_out <= 1'b0; // default assignment
+          tx_serial_out <= 1'b0;
+          if (cnt_baud_clk < OVERSAMPLING-1)
+          begin
+            cnt_baud_clk <= cnt_baud_clk + 1;
+          end
+          else
+          begin
+            cnt_baud_clk  <= 0;
+            data_bits_idx <= 0;
+            SM_next_state <= SM_tx_data_s;
+          end
+        end // <<< SM_tx_start_s
+
+
+      SM_tx_data_s :
+        begin // >>> SM_tx_data_s
+          tx_serial_out <= data_bits[data_bits_idx];
+
+          if (cnt_baud_clk == OVERSAMPLING-1)
             begin
-            r_SM_Main <= IDLE;
-            o_TX_Active <= 1'b0; // Set to default low on idle state
-            end
-          end // case: IDLE
-
-
-      // Send out Start Bit. Start bit = 0
-      TX_START_BIT :
-        begin
-          o_TX_Done <= 1'b0; // default assignment
-          o_TX_Serial <= 1'b0;
-
-          // Wait CLKS_PER_BIT-1 clock cycles for start bit to finish (216 x 40 ns = 8.640 us)
-          if (r_Clock_Count < CLKS_PER_BIT-1)
-          begin
-            r_Clock_Count <= r_Clock_Count + 1;
-            r_SM_Main     <= TX_START_BIT;
-          end
-          else
-          begin
-            r_Clock_Count <= 0;
-            r_SM_Main     <= TX_DATA_BITS;
-          end
-        end // case: TX_START_BIT
-
-
-      // Wait CLKS_PER_BIT-1 clock cycles for data bits to finish
-      TX_DATA_BITS :
-        begin
-          o_TX_Done <= 1'b0; // default assignment
-          // It should transmit a new bit every 8.64 us
-          o_TX_Serial <= r_TX_Data[r_Bit_Index];
-
-          if (r_Clock_Count < CLKS_PER_BIT-1)
-          begin
-            r_Clock_Count <= r_Clock_Count + 1;
-            r_SM_Main     <= TX_DATA_BITS;
-          end
-          else
-          begin
-            r_Clock_Count <= 0;
-
-            // Check if we have sent out all bits
-            if (r_Bit_Index < 7)
-            begin
-              r_Bit_Index <= r_Bit_Index + 1;
-              r_SM_Main   <= TX_DATA_BITS;
-            end
+            cnt_baud_clk <= 0;
+            if (data_bits_idx == (DATA_BITS - 1))
+              SM_next_state   <= SM_tx_stop_s;
             else
-            begin
-              r_Bit_Index <= 0;
-              r_SM_Main   <= TX_STOP_BIT;
+              data_bits_idx <= data_bits_idx + 1;
             end
-          end
-        end // case: TX_DATA_BITS
+          else
+            cnt_baud_clk <= cnt_baud_clk + 1;
+        end // <<< SM_tx_data_s
 
 
-      // Send out Stop bit.  Stop bit = 1
-      TX_STOP_BIT :
-        begin
-          o_TX_Serial <= 1'b1;
+      SM_tx_stop_s :
+        begin // >>> SM_tx_stop_s
+          tx_serial_out <= 1'b1;
 
-          // Wait CLKS_PER_BIT-1 clock cycles for Stop bit to finish
-          if (r_Clock_Count < CLKS_PER_BIT-1)
+          // Wait OVERSAMPLING-1 clock cycles for Stop bit to finish
+          if (cnt_baud_clk == OVERSAMPLING-1)
           begin
-            r_Clock_Count <= r_Clock_Count + 1;
-            r_SM_Main     <= TX_STOP_BIT;
+            SM_next_state = SM_idle_s;
+            tx_done_out = 1'b1;
+            cnt_baud_clk <= 0;
           end
           else
-          begin
-            o_TX_Done     <= 1'b1;
-            r_Clock_Count <= 0;
-            r_SM_Main     <= CLEANUP;
-            o_TX_Active   <= 1'b0;
-          end
-        end // case: TX_STOP_BIT
-
-
-      // Stay here 1 clock
-      CLEANUP :
-        begin
-          r_SM_Main <= IDLE;
-        end
-
+            cnt_baud_clk <= cnt_baud_clk + 1;
+        end // <<< SM_tx_stop_s
 
       default :
-        begin
-        r_SM_Main <= IDLE;
-        end
+        SM_next_state <= SM_idle_s;
     endcase
-    end // else: !if(~i_Rst_L)
-  end // always @ (posedge i_Clock or negedge i_Rst_L)
+    end
+  end
 endmodule
