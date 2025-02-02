@@ -1,10 +1,6 @@
 // hello
 `timescale 1ns/10ps
 
-`include "top_uart_tx_app.v"
-`include "uart_tx.v"
-`include "uart_rx.v"
-
 module uart_tx_tb();
 
     // Test buton input
@@ -13,14 +9,12 @@ module uart_tx_tb();
 
     // reference clock (should simply be 1 ns)
     parameter c_DEFAULT_SEND_RATE = 750;//_000;
-    parameter c_DEFAULT_CLOCK_IN = 10;//_000;
 
     reg r_ref_clk = 0, rst_n_i = 1'b0;
 
     wire uart_tx_data_o, uart_tx_active_o;
 
-    top_uart_tx_app #(.DEFAULT_SEND_RATE(c_DEFAULT_SEND_RATE),
-    .DEFAULT_CLOCK_IN(c_DEFAULT_CLOCK_IN)
+    top_uart_tx_app #(.DEFAULT_SEND_RATE(c_DEFAULT_SEND_RATE)
     ) top_uart_tx_app_inst
     (
      .rst_n_i(rst_n_i),

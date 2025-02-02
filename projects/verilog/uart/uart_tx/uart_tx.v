@@ -1,8 +1,7 @@
 `timescale 1ns/10ps
 
 module uart_tx
-  #(parameter CLKS_PER_BIT = 217,
-    parameter DEFAULT_CLOCK_IN = 10)
+  #(parameter CLKS_PER_BIT = 217)
   (
    input       i_Rst_L,
    input       i_Clock,
@@ -11,7 +10,7 @@ module uart_tx
    output reg  o_TX_Active,
    output reg  o_TX_Serial,
    output reg  o_TX_Done
-   );
+  );
 
   localparam IDLE         = 3'b000;
   localparam TX_START_BIT = 3'b001;

@@ -6,9 +6,6 @@
 // It sends out byte 0x37, and ensures the RX receives it correctly.
 `timescale 1ns/10ps
 
-`include "UART_TX.v"
-`include "UART_RX.v"
-
 module uart_rxtx_tb ();
 
   // Testbench uses a 25 MHz clock
@@ -25,14 +22,14 @@ module uart_rxtx_tb ();
   reg [7:0] r_TX_Byte = 0;
   wire [7:0] w_RX_Byte;
 
-  UART_RX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_RX_Inst
+  uart_rx #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) uart_rx_inst
     (.i_Clock(r_Clock),
      .i_RX_Serial(w_UART_Line),
      .o_RX_DV(w_RX_DV),
      .o_RX_Byte(w_RX_Byte)
      );
 
-  UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
+  uart_tx #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) uart_tx_inst
     (.i_Clock(r_Clock),
      .i_TX_DV(r_TX_DV),
      .i_TX_Byte(r_TX_Byte),

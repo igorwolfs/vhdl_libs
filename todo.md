@@ -10,7 +10,6 @@
         - Tx: single-bit output
         - Tx_done: TEST-signal(simply for checking) when the UART is done
         - Tx_active: TEST-signal: when uart is active
-
 - Can you test the UART TX and RX separately even if they are in the same module?
 
 ### Create a module that sends random signals with this UART module
@@ -26,6 +25,9 @@ OR
 - 8 LED's out
 - if 2 registers on the bus are set at the same time -> break down.
 
+### Create a module that performs DFT 
+- Input: sinusoidal signal over UART / other protocol, using RX
+- Output: fourier-transformed signal using TX
 
 ## Get the xADC up and running
 ## Stream the data from the xADC to the serial device
