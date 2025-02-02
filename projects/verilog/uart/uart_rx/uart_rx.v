@@ -1,153 +1,142 @@
-//////////////////////////////////////////////////////////////////////
-// Author:      Russell Merrick
-//////////////////////////////////////////////////////////////////////
-// Description: This file contains the UART Receiver.  This receiver is 
-//              able to receive 8 bits of serial data, one start bit, one 
-//              stop bit, and no parity bit.  When receive is complete 
-//              o_RX_DV will be driven high for one clock cycle.
-// 
-// Parameters:  Set Parameter CLKS_PER_BIT as follows:
-//              CLKS_PER_BIT = (Frequency of i_Clock)/(Frequency of UART)
-//              Example: 25 MHz Clock, 115200 baud UART
-//              (25000000)/(115200) = 217
-//////////////////////////////////////////////////////////////////////////////
 `timescale 1ns/10ps
 
+/**
+
+# Inputs and outputs
+PARAMETERS:
+- OVERSAMPLING RATE (There should be an extra counter here that is used for oversamplign the start bit)
+Inputs:
+- Input: rx_serial_in
+- Input: Clock from baud generator
+- Input: nrst_in (reset)
+Outputs:
+- Ouput: rx_data_out (5-9 data-bist)
+- Output: data_ready (1 bit) -> signalling that data is ready to be read
+
+UART Working
+1. RX must be pulled high - default state
+2. Start bit
+    - High to low for 1 clock cycle -> UART Should sample this until it detects a low bit
+3. Data frame
+    - 5 .. 9 bits
+4. Parity bit
+    - 0 .. 1 bit
+5. Stop bit
+    - 1-2 bits (high voltage)
+6. Pass received bytes to data-bus
+*/
+
+
 module uart_rx
-  // parameter: constant that can be overridden during module instantiation.
-  #(parameter CLKS_PER_BIT = 217)
+  #(parameter OVERSAMPLING = 8,
+    parameter DATA_BITS = 8) // Oversampling
   (
-   input            i_Rst_L,
-   input            i_Clock,
-   input            i_RX_Serial,
-   output reg       o_RX_DV, // reg: single-bit output
-   output reg [7:0] o_RX_Byte // 8-bit output [MSB, LSB]
+   input            nrst_in,
+   input            clk_in,
+   input            rx_serial_in,
+   output reg       data_rdy_out,         // reg: single-bit output
+   output reg [DATA_BITS-1:0] rx_data_out // 8-bit output [MSB, LSB]
    );
-  // localparam: simply a constant which stays the same inside this module, CANNOT be overridden at module instantiation (like parameter)
-  localparam IDLE         = 3'b000;
-  localparam RX_START_BIT = 3'b001;
-  localparam RX_DATA_BITS = 3'b010;
-  localparam RX_STOP_BIT  = 3'b011;
-  localparam CLEANUP      = 3'b100;
+
+   // CONSTANTS
+  localparam SM_idle_s         = 2'b00;
+  localparam SM_rx_start_s     = 2'b01;
+  localparam SM_rx_data_s      = 2'b10;
+  localparam SM_rx_stop_s      = 2'b11;
 
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
-  reg [$clog2(CLKS_PER_BIT)-1:0] r_Clock_Count;
-  reg [2:0] r_Bit_Index; // 3 bits -> max 8 states
-  reg [2:0] r_SM_Main;
-  reg r_RX_Data_R;
-  reg r_RX_Data;
+  reg [$clog2(OVERSAMPLING)-1:0] cnt_baud_clk;
+
+  reg [$clog2(DATA_BITS-1):0] data_bit_idx; // 3 bits -> max 8 states
+  reg [1:0] SM_next_state;
+  reg rx_data_unstable;
+  reg rx_data_stable;
 
   // double flipflop
-  always @(posedge i_Clock)
+  always @(posedge clk_in)
   begin
-     r_RX_Data_R <= i_RX_Serial;
-     r_RX_Data <= r_RX_Data_R;
+     begin
+     rx_data_unstable <= rx_serial_in;
+     rx_data_stable <= rx_data_unstable;
+     end
   end
 
   // Purpose: Control RX state machine
-  always @(posedge i_Clock or negedge i_Rst_L)
+  always @(posedge clk_in)
   begin
     // If ~i_Rst_L: reset is triggered
-    if (~i_Rst_L)
+    if (~nrst_in)
     begin
-      r_SM_Main <= 3'b000;
-      o_RX_DV   <= 1'b0;
+      SM_next_state = SM_idle_s;
+      data_rdy_out = 1'b0;
+      rx_data_out = 0;
+      data_bit_idx <= 0;
     end
     else
     begin
-      case (r_SM_Main)
-      IDLE :
-        begin
-          o_RX_DV       <= 1'b0;
-          r_Clock_Count <= 0;
-          r_Bit_Index   <= 0;
+      case (SM_next_state)
 
-          if (r_RX_Data == 1'b0)          // Start bit detected
-            r_SM_Main <= RX_START_BIT;
+      SM_idle_s :
+      begin       // >>> SM_idle_s
+          data_rdy_out    <= 1'b0;
+          cnt_baud_clk    <= 0;
+
+          if (rx_serial_in == 1'b0)
+            SM_next_state <= SM_rx_start_s;
           else
-            r_SM_Main <= IDLE;
+            SM_next_state <= SM_idle_s;
+        end      // <<< SM_idle_s
+
+      SM_rx_start_s :
+      begin       // >>> SM_start_s
+        if (cnt_baud_clk == (OVERSAMPLING-1)/2) // Sample halfway the start-bit
+        begin
+          if (rx_serial_in == 1'b0)
+            begin
+              cnt_baud_clk <= 0;  // reset counter, found the middle
+              SM_next_state <= SM_rx_data_s;
+            end
+          else
+            SM_next_state <= SM_idle_s;
         end
-
-      // Check middle of start bit to make sure it's still low
-      RX_START_BIT :
+        else
         begin
-          if (r_Clock_Count == (CLKS_PER_BIT-1)/2)
-          begin
-            if (r_RX_Data == 1'b0)
-            begin
-              r_Clock_Count <= 0;  // reset counter, found the middle
-              r_SM_Main     <= RX_DATA_BITS;
-            end
-            else
-              r_SM_Main <= IDLE;
-          end
-          else
-          begin
-            r_Clock_Count <= r_Clock_Count + 1;
-            r_SM_Main     <= RX_START_BIT;
-          end
-        end // case: RX_START_BIT
-
-
-      // Wait CLKS_PER_BIT-1 clock cycles to sample serial data
-      RX_DATA_BITS :
-        begin
-          if (r_Clock_Count < CLKS_PER_BIT-1)
-          begin
-            r_Clock_Count <= r_Clock_Count + 1;
-            r_SM_Main     <= RX_DATA_BITS;
-          end
-          else
-          begin
-            r_Clock_Count          <= 0;
-            o_RX_Byte[r_Bit_Index] <= r_RX_Data;
-            
-            // Check if we have received all bits
-            if (r_Bit_Index < 7)
-            begin
-              r_Bit_Index <= r_Bit_Index + 1;
-              r_SM_Main   <= RX_DATA_BITS;
-            end
-            else
-            begin
-              r_Bit_Index <= 0;
-              r_SM_Main   <= RX_STOP_BIT;
-            end
-          end
-        end // case: RX_DATA_BITS
-      
-      
-      // Receive Stop bit.  Stop bit = 1
-      RX_STOP_BIT :
-        begin
-          // Wait CLKS_PER_BIT-1 clock cycles for Stop bit to finish
-          if (r_Clock_Count < CLKS_PER_BIT-1)
-          begin
-            r_Clock_Count <= r_Clock_Count + 1;
-            r_SM_Main     <= RX_STOP_BIT;
-          end
-          else
-          begin
-            o_RX_DV       <= 1'b1;
-            r_Clock_Count <= 0;
-            r_SM_Main     <= CLEANUP;
-          end
-        end // case: RX_STOP_BIT
-      
-      
-      // Stay here 1 clock
-      CLEANUP :
-        begin
-          r_SM_Main <= IDLE;
-          o_RX_DV   <= 1'b0;
+          cnt_baud_clk <= cnt_baud_clk + 1;
         end
-      
-      
-      default :
-        r_SM_Main <= IDLE;
-      
+      end   // <<< SM_start_s
+      SM_rx_data_s  :
+      begin // <<< SM_rx_data_s
+        if (cnt_baud_clk == OVERSAMPLING-1)
+          begin
+          rx_data_out[data_bit_idx] <= rx_data_stable;
+          data_bit_idx <= data_bit_idx + 1;
+          cnt_baud_clk <= 0;
+          if (data_bit_idx == (DATA_BITS - 1))
+            begin
+            SM_next_state <= SM_rx_stop_s;
+            end
+          end
+        else
+          begin
+          cnt_baud_clk <= cnt_baud_clk + 1;
+          end
+      end // <<< SM_rx_data_s
+      SM_rx_stop_s :
+        begin // >>> SM_rx_stop_s
+        if (cnt_baud_clk == OVERSAMPLING-1)
+          begin
+          data_rdy_out <= 1'b1;
+          cnt_baud_clk <= 0;
+          data_bit_idx <= 0;
+          SM_next_state <= SM_idle_s;
+          end
+        else
+          cnt_baud_clk <= cnt_baud_clk + 1;
+        end // <<< SM_rx_stop_s
+      default:
+        SM_next_state <= SM_idle_s;
     endcase
-    end // else: !if(~i_Rst_L)
-  end // always @ (posedge i_Clock or negedge i_Rst_L)
-  
+    end
+  end
+
 endmodule // UART_RX

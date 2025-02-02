@@ -1,16 +1,12 @@
 # Todo
-## Create a serial IP-block that simply communicates whatever 8-bits you put into it.
+## UART
+- Create a UART RX module
+- Create tests for the module using systemverilog
 - Create a UART TX module
-- This module should have
-    - input: 
-        - byte (8-bit)
-        - TX-divider (for the baud rate)
-        - Clock
-    - output:
-        - Tx: single-bit output
-        - Tx_done: TEST-signal(simply for checking) when the UART is done
-        - Tx_active: TEST-signal: when uart is active
-- Can you test the UART TX and RX separately even if they are in the same module?
+- Test the UART TX module in systemverilog
+- Combine the UART RX, TX module together with the baud generator
+- Create systemverilog tests for this module
+- Create a simple ECHO-application
 
 ### Create a module that sends random signals with this UART module
 - Takes input from buttons

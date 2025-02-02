@@ -28,19 +28,19 @@ module baud_generator
     begin
         if (~nrst_in)
         begin
-            clk_reg = 0;
-            clk_out_count = 0;
+            clk_reg <= 0;
+            clk_out_count <= 0;
         end
         else
         begin
             if (clk_out_count < CLOCK_TOGGLE_COUNT)
             begin
-                clk_out_count = clk_out_count + 1;
+                clk_out_count <= clk_out_count + 1;
             end
             else if (clk_out_count == CLOCK_TOGGLE_COUNT)
             begin
-                clk_reg = ~clk_reg;
-                clk_out_count = 0;
+                clk_reg <= ~clk_reg;
+                clk_out_count <= 0;
             end
         end
     end

@@ -6,3 +6,6 @@
 
 ## Exercises
 - https://www.edaplayground.com/playgrounds?searchString=&language=VHDL&simulator=&methodologies=&curated=true
+
+# Conventions:
+- (Systemverilog) https://docs.google.com/document/d/1xA5XUzBtz_D6aSyIBQUwFk_kSUdckrfxa2uzGjMgmCU/edit?tab=t.0

@@ -23,7 +23,7 @@ module baud_generator_tb();
             nrst_in = 0;
             #20
             nrst_in = 1;
-           #100000;
+        #100000;
         end
 
 endmodule
