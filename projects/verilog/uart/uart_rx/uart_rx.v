@@ -45,7 +45,7 @@ module uart_rx
   localparam SM_rx_stop_s      = 2'b11;
 
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
-  reg [$clog2(OVERSAMPLING)-1:0] cnt_baud_clk;
+  reg [$clog2(OVERSAMPLING-1):0] cnt_baud_clk; //! WARNING: modified line here without testing
 
   reg [$clog2(DATA_BITS-1):0] data_bits_idx; // 3 bits -> max 8 states
   reg [1:0] SM_next_state;
