@@ -9,3 +9,7 @@
 
 # Conventions:
 - (Systemverilog) https://docs.google.com/document/d/1xA5XUzBtz_D6aSyIBQUwFk_kSUdckrfxa2uzGjMgmCU/edit?tab=t.0
+
+
+# GENERAL RULES
+- Make the basics now, OPTIMIZE later

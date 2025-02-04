@@ -16,6 +16,7 @@ module uart_tx_tb();
 
     // BITS
     localparam DATA_BITS = 8;
+
     // TESTS
     localparam N_TESTS = 16;
     localparam logic [7:0] TESTS_IN[15:0] = {
@@ -27,7 +28,8 @@ module uart_tx_tb();
     reg clk = 1'b0;
     reg nrst_in = 1'b1;
     reg data_rdy_in = 1'b0;
-    reg [DATA_BITS-1:0] tx_data_in;
+    reg [DATA_BITS-1:0] tx_data_next;
+    reg [DATA_BITS-1:0] tx_data_prev;
 
     // For loop
     reg [DATA_BITS-1:0] tx_data_received = 0; // Holds received value
@@ -43,7 +45,7 @@ module uart_tx_tb();
      .nrst_in(nrst_in),
      .clk_in(clk),
      .data_rdy_in(data_rdy_in),
-     .tx_data_in(tx_data_in),
+     .tx_data_in(tx_data_next),
      .tx_serial_out(tx_serial_out),
      .tx_busy_out(tx_busy_out),
      .tx_done_out(tx_done_out)
@@ -62,13 +64,19 @@ module uart_tx_tb();
             nrst_in <= 1;
             @(posedge clk);
 
-            tx_data_in <= TESTS_IN[0];
-            for (integer test_idx=0; test_idx<N_TESTS-1; test_idx = test_idx + 1)
+            tx_data_next <= TESTS_IN[0];
+            for (integer test_idx=0; test_idx<=N_TESTS-1; test_idx = test_idx + 1)
             begin
                 // Write starting bit and trigger send
                 data_rdy_in <= 1'b1; // Keep data ready high to see if it can just keep sending.
                 @(negedge tx_serial_out);
-                tx_data_in <= TESTS_IN[test_idx+1]; // Put new data on start bit
+                if (test_idx == N_TESTS-2)
+                    data_rdy_in <= 1'b0; // Draw low after last message was sent.
+                    
+                // Save this data for comparison.
+                tx_data_prev <= tx_data_next;
+                tx_data_next <= TESTS_IN[test_idx+1]; // Put new data on start bit
+
                 // Sample the data bits
                 #(BAUD_RATE_PERIOD/2); // Wait for half a baud-rate period to sample in the center.
                 for (int bit_idx = 0; bit_idx < DATA_BITS; bit_idx++) begin
@@ -77,10 +85,11 @@ module uart_tx_tb();
                     end
                 // Wait until the data ready is triggered
                 @(posedge tx_done_out)
-                if (tx_data_received != tx_data_in) $display("Test %d success!", test_idx+1);
+                if (tx_data_received == tx_data_prev) $display("Test %d success!", test_idx+1);
                 else $display("Test %d FAIL", test_idx);
                 tx_data_received = 0;
             end
+
             $finish;
         end
 endmodule

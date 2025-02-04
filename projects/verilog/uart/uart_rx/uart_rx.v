@@ -62,7 +62,7 @@ module uart_rx
   end
 
   // Purpose: Control RX state machine
-  always @(posedge clk_in)
+  always @(posedge clk_in, negedge nrst_in)
   begin
     // If ~i_Rst_L: reset is triggered
     if (~nrst_in)

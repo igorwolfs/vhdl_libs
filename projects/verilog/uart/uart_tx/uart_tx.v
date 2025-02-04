@@ -64,7 +64,7 @@ module uart_tx
   // Purpose: Control TX state machine
   //! WARNING: errors here might happen due to asynchronous reset, consider removing the nrst_in to make sure the reset happens synchronously.
   //always @(posedge clk_in or negedge nrst_in)
-  always @(posedge clk_in)
+  always @(posedge clk_in, negedge nrst_in)
   begin
     if (~nrst_in)
     begin
@@ -80,7 +80,7 @@ module uart_tx
       SM_idle_s :
         begin // >>> SM_idle_s
           tx_serial_out   <= 1'b1;         // Drive Line High for SM_idle_s
-          tx_done_out     <= 0;
+          tx_done_out     <= 1'b0;
           cnt_baud_clk    <= 0;
           if (data_rdy_in == 1'b1)
           begin
