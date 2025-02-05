@@ -5,87 +5,97 @@
 Check draw-io diagram
 
 ALWAYS EXTERNALLY
-// * RESET BUFFER
-- Buffer should be emptied
-- read and write ptr should be put at same place (e.g.: 0)
-- can_read and can_write should be low
-// * SIGNAL READ
-- read_en_in should be pulled high
-- if readable_out is enabled
-- sample value at data_write_in
-- toggle read_en_in low -> high -> low to load next value
-// * SIGNAL WRITE
-- write_en_in should be pulled high
-- if writable_out is enabled
-- toggle write_en_in low -> high -> low to load next value
 
-NOTE: we need to know whether the buffer is empty or full.
-    - Since when the read and write pointer are on the same place we don't know.
-    - FULL can only be set in read
-    - EMPTY can only be set in write
+// **** READ MODULE
+INPUTS:
+    - clk_in
+    - nrst_in
+    - read_in
+    - wptr_g_sync_in (comes from the synchronizer to check if fifo is full)
+OUTPUTS:
+    - rptr_b, empty_out (to memory)
+    - rptr_g (to synchronizer)
+
+// **** WRITE MODULE
+INPUTS:
+    - clk_in
+    - nrst_in
+    - write_in
+    - rptr_g_sync_in (comes from synchronizer to check if fifo is full)
+OUTPUTS:
+    - wptr_b, full_out (to memory)
+    - wptr_g (fo synchronizer -> for read module)
+
+// **** Synchronizers
+// * Read synchronizer
+INPUTS
+    - nrst_in
+    - clk_read (we have to stabilise with respect to this clock)
+    - wptr_g
+OUTPUTS
+    - wptr_g_sync
+
+// * Write synchronizer
+INPUTS
+    - nrst_in
+    - clk_write (we have to stabilise with respect to this clock)
+    - rptr_g
+OUTPUTS
+    - rptr_g_sync
+
+// **** Memory module
+INPUTS:
+    - read_in, write_in (read / write signals)
+    - read_nrst_in, write_nrst_in (separate read/write reset signals synced with their clock)
+    - read_clk, write_clk (read / write clock signals)
+    - data_write_in (data to be written)
+OUTPUTS:
+    - data_read_out (data to be read)
+    - full_out, empty_out (full / empty signals)
 */
 
 module fifo_async_circular
-    #(parameter DATA_WIDTH = 8,
-    parameter DATA_DEPTH = 8)
+    #(parameter DEPTH = 16,
+    parameter WIDTH = 8)
 (
-    input read_clk,
-    input write_clk,
-    input [DATA_WIDTH-1:0] data_write_in,
-    input write_en_in,
-    input read_en_in,
-    input nrst_in,
-    output [DATA_WIDTH-1:0] data_read_out,
-    output reg writable_out,
-    output reg readable_out
+    input read_clk, write_clk,
+    input write_in, read_in,
+    input w_nrst_in, r_nrst_in, //! NOTE: 2 reset signals present here.
+    input [WIDTH-1:0] data_write_in,
+    output [WIDTH-1:0] data_read_out,
+    output reg full_out, empty_out
 );
+    parameter PTR_WIDTH = $clog2(DEPTH-1)+1; // Necessary bits + 1
+    wire rptr_g, wptr_g;
+    wire wptr_b, rptr_b;
+    wire empty_out, full_out;
 
-    reg [DATA_DEPTH-1:0] buffer[DATA_WIDTH-1:0];
-    reg [$clog2(DATA_DEPTH-1):0] read_ptr;
-    reg [$clog2(DATA_DEPTH-1):0] write_ptr;
 
-    reg full; // Saves whether buffer is full or empty
+    // READ PTR
+    fifo_async_read_ptr #(.WIDTH(WIDTH), .PTR_WIDTH(PTR_WIDTH)) read_ptr
+    (.clk_in(read_clk), .nrst_in(r_nrst_in), .read_in(read_in),
+    .wptr_g_sync_in(wptr_g_sync),
+    .rptr_b(rptr_b), .rptr_g(rptr_g), .empty_out(empty_out));
+    
+    // WRITE PTR
+    fifo_async_write_ptr #(.WIDTH(WIDTH), .PTR_WIDTH(PTR_WIDTH)) write_ptr
+    (.clk_in(write_clk), .nrst_in(w_nrst_in), .write_in(write_in),
+    .rptr_g_sync_in(rptr_g_sync),
+    .wptr_b(wptr_b), .wptr_g(wptr_g), .full_out(full_out));
 
-    // *** READ SIGNAL
-    @(posedge write_clk, nrst_in)
-    begin
-        if (~nrst_in)
-            begin
-            // Set all read-related variables
-            write_ptr <= 0;
-            writable_out <= 0;
-            full <= 0;
-            end
-        else
-            begin
-            if (writable_out && write_en_in)
-            begin
-                // Check if write_ptr is == depth-1
-                // If it is write data to 0 and set the write_ptr to 0
-                if (write_ptr == DATA_DEPTH-1)
-                    begin
-                    buffer[0] = data_write_in;
-                    if (read_ptr == 0)
-                    begin
-                        full <= 1;
-                    end
-                else // Note that we are writing into 1 when write location is 0
-                    begin
-                        buffer[write_ptr+1] <= data_write_in;
-                        if (read_ptr == write_ptr+1)
-                        begin
-                            
-                        end
-                    end
-            end
-            if (write_ptr != read_ptr)
-                writable_out <= 1;
-            else
-                writable_out <= 0;
-            // if the write pointer catches UP to the read pointer -> make sure to trigger the read_disabled
-            if (write_ptr == )
-            begin
-                
-            end
-    end
+    // READ PTR SYNC
+    double_ff_sync #(.N(WIDTH)) read_sync
+    (.clkin(write_clk), .nrst_in(w_nrst_in), .data_in(rptr_g));
+
+    // WRITE PTR SYNC
+    double_ff_sync #(.N(WIDTH)) write_sync
+    (.clkin(read_clk), .nrst_in(r_nrst_in), .data_in(wptr_g));
+
+    // MEMORY DECLARE
+    fifo_memory #(.WIDTH(WIDTH), .DEPTH(DEPTH), .PTR_WIDTH(PTR_WIDTH)
+    (.w_clk(write_clk), .write_in(write_in),
+    .read_in(read_in),
+    .full_in(full_out), .empty_in(empty_out),
+    .read_tpr_in(rptr_b), .write_ptr_in(wptr_b),
+    .data_write_in(data_write_in), .data_read_out(data_read_out));
 endmodule

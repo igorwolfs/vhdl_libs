@@ -24,7 +24,8 @@ module bin2gray
 
     genvar i;
     generate
-        for (i=0; i<N-1; i=i+1) 
+        // Can also be written as (bin_in >> 1) ^ bin_in
+        for (i=0; i<N-1; i=i+1)
             begin
             assign gray_out[i] = bin_in[i] ^ bin_in[i+1];
             end
