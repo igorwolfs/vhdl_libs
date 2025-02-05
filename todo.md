@@ -8,6 +8,12 @@
 - Create systemverilog tests for this module
 - Create a simple ECHO-application
 
+## Fifo
+- Make sure to understand the full fifo
+
+### bin2gray
+Make bin2gray hardawre conversion module
+
 ### Create a module that sends random signals with this UART module
 - Takes input from buttons
 - depending on 8-bit button combination, sends number
