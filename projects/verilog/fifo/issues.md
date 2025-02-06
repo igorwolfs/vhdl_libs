@@ -99,3 +99,9 @@ This is only known, the clock cycle after the nth data-point has been written.
 
 ## Issue 5
 The read-signal asserts too late. The read-signal should assert if the read pointer will be equal to the right pointer for the next clock cycle.
+
+We indeed have the issue now that the an additional read happens due to the is_empty not being asserted on time.
+
+Changing the dynamic here to an in-loop change doesn't change the situation however, since it was already combinatorial
+- (wptr_b_sync == rptr_b_next) was assigned combinatorially, and was assigned to empty_out every clock cycle.
+We do need something combinatorial here.

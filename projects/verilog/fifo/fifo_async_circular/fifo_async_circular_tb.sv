@@ -89,23 +89,21 @@ module fifo_async_circular_tb ();
                 $display("BUFFER IS FULL %d", i);
             end
         write_in <= 0;
-        
+
         @(posedge read_clk);
         for (int i=0; i<N_TESTS*2; i++)
             begin
             if (!empty_out)
                 begin
-                
                 read_in <= 1;
                 @(posedge read_clk);
                 if (data_read_out == TESTS_IN[i]) $display("Read test OK %d", i);
                 else  $display("read Test FAIL %d", i);
-                
                 end
             else
                 $display("Buffer EMTPY! %d", i);
             end
-        
+
     end
 
     // * READ BLOCK
@@ -118,7 +116,6 @@ module fifo_async_circular_tb ();
         @(posedge read_clk);
         r_nrst_in <= 1;
         @(posedge read_clk);
-        
     end
 
 endmodule
