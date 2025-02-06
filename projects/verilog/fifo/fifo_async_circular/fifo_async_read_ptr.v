@@ -32,6 +32,7 @@ module fifo_async_read_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
     assign rptr_b_next = rptr_b_out + (read_in & !empty_out);
     assign rptr_g_next = (rptr_b_next >> 1) ^ rptr_b_next;
     assign rempty = (wptr_b_sync == rptr_b_next);
+    // assign empty_out = (wptr_b_sync == rptr_b_next);
 
     always @(posedge clk_in, negedge nrst_in)
     begin
@@ -46,6 +47,7 @@ module fifo_async_read_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
             rptr_g_out <= rptr_g_next;
             end
     end
+
     always @(posedge clk_in or negedge nrst_in)
     begin
         if (~nrst_in)
@@ -53,9 +55,6 @@ module fifo_async_read_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
         else
             empty_out <= rempty;
     end
+    
 
 endmodule
-
-/**
-Source: https://vlsiverify.com/verilog/verilog-codes/asynchronous-fifo/
-**/

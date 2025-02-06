@@ -17,7 +17,7 @@ module fifo_memory #(parameter WIDTH = 8, parameter DEPTH = 16, parameter PTR_WI
         input full_in, empty_in,
         input [PTR_WIDTH-1:0] read_ptr_in, write_ptr_in,
         input  [WIDTH-1:0] data_write_in, // No need for a register because we are saving the signal into the buffer
-        output reg [WIDTH-1:0] data_read_out);
+        output [WIDTH-1:0] data_read_out); //! Removed register in-between here.
 
     reg [WIDTH-1:0] buffer [0:DEPTH-1];
     always @(posedge w_clk)

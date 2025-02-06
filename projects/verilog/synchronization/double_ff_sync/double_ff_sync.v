@@ -1,14 +1,14 @@
 `timescale 1ns/10ps
 
-module double_ff_sync #(parameter N=8)
+module double_ff_sync #(parameter WIDTH=8)
         (
             input clkin,
             input nrst_in,
-            input [N-1:0] data_in,
-            output reg [N-1:0] data_out
+            input [WIDTH-1:0] data_in,
+            output reg [WIDTH-1:0] data_out
         );
 
-        reg [N-1:0] data_tmp;
+        reg [WIDTH-1:0] data_tmp;
         always @(posedge clkin) begin
             if (~nrst_in)
                 begin
