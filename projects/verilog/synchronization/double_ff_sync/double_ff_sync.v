@@ -7,7 +7,6 @@ module double_ff_sync #(parameter WIDTH=8)
             input [WIDTH-1:0] data_in,
             output reg [WIDTH-1:0] data_out
         );
-
         reg [WIDTH-1:0] data_tmp;
         always @(posedge clkin) begin
             if (~nrst_in)

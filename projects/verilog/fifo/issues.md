@@ -105,3 +105,62 @@ We indeed have the issue now that the an additional read happens due to the is_e
 Changing the dynamic here to an in-loop change doesn't change the situation however, since it was already combinatorial
 - (wptr_b_sync == rptr_b_next) was assigned combinatorially, and was assigned to empty_out every clock cycle.
 We do need something combinatorial here.
+
+
+### Answer 
+The issue is probably that empty_out has a recursive definition with an undefined state. And it does indeed
+
+
+```verilog
+assign rptr_b_next = rptr_b_out + (read_in & !(wptr_b_sync == rptr_b_next));
+assign empty_out = (wptr_b_sync == rptr_b_next);
+```
+
+It also seems that the verilog test-bench does take 1 out of every 2 clock cycles to write. 
+So when it reads it
+- Reads one clock cycle
+- Waits one clock cycle
+When it writes it
+- writes one clock cycle
+- waits one clock cycle
+
+But when your clock signal is equal to the data-rate, this seems like a weird way to fill a FIFO? 
+- Shouldn't the fifo be able to handle data at the clock speed of your peripheral?
+- Maybe you assume that your peripherals will always be driven at a higher speed than the data-rate, because you have counters and dividers present at the peripheral?
+
+So, it appears that the read / write works perfectly, but the check whether the read / write succeeded depends on whether the is_full or is_empty is asserted after reading / writing.
+So just make sure to follow this structure when reading and writing:
+
+Writing:
+```verilog
+begin
+data_write_in <= TESTS_IN[i];
+write_in <= 1;
+@(posedge write_clk);
+if (!full_out)
+    begin
+    $display("Data %d written to buffer, full: %d", i, full_out);
+    $display("Data %d written to buffer, full: %d", i, full_out);
+    // write_in <= 0;
+    // @(posedge write_clk);
+    end
+else
+    $display("BUFFER IS FULL %d", i);
+end
+```
+
+
+Reading:
+```verilog
+begin
+read_in <= 1;
+@(posedge read_clk);
+if (!empty_out)
+    begin
+    if (data_read_out == TESTS_IN[i]) $display("Read test OK %d", i);
+    else  $display("read Test FAIL %d", i);
+    end
+else
+    $display("Buffer EMTPY! %d", i);
+end
+```

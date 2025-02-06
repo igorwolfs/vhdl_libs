@@ -63,14 +63,12 @@ module fifo_async_circular
     input w_nrst_in, r_nrst_in, //! NOTE: 2 reset signals present here.
     input [WIDTH-1:0] data_write_in,
     output [WIDTH-1:0] data_read_out,
-    output full_out,
-    output reg empty_out
+    output full_out, empty_out
 );
     parameter PTR_WIDTH = $clog2(DEPTH-1)+1; // Necessary bits + 1
     wire [PTR_WIDTH-1:0] rptr_g, wptr_g;
     wire [PTR_WIDTH-1:0] rptr_b, wptr_b;
     wire [PTR_WIDTH-1:0] wptr_g_sync, rptr_g_sync;
-    wire empty_out, full_out;
     // READ PTR
     fifo_async_read_ptr #(.WIDTH(WIDTH), .PTR_WIDTH(PTR_WIDTH)) read_ptr
     (.clk_in(read_clk), .nrst_in(r_nrst_in), .read_in(read_in),

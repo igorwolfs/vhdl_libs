@@ -33,8 +33,8 @@ module fifo_async_circular_tb ();
     // *** TESTS
     localparam N_TESTS = 16;
     localparam logic [WIDTH-1:0] TESTS_IN[15:0] = {
-    8'h23, 8'h25, 8'hff, 8'h13,8'h00, 8'h11, 8'h99, 8'h11,
-    8'h22, 8'hfa, 8'haf, 8'hba,8'hab, 8'h91, 8'h01, 8'h10
+        8'h23, 8'h25, 8'hff, 8'h13, 8'h00, 8'h11, 8'h99, 8'h11,
+        8'h22, 8'hfa, 8'haf, 8'hba, 8'hab, 8'h91, 8'h01, 8'h10
     };
 
     // *** REGISTERS
@@ -75,12 +75,12 @@ module fifo_async_circular_tb ();
         repeat(10) @(posedge write_clk);
         for (int i=0; i<N_TESTS*2; i++)
             begin
+            data_write_in <= TESTS_IN[i];
+            write_in <= 1;
+            @(posedge write_clk);
             if (!full_out)
                 begin
-                data_write_in <= TESTS_IN[i];
-                write_in <= 1;
                 $display("Data %d written to buffer, full: %d", i, full_out);
-                @(posedge write_clk);
                 $display("Data %d written to buffer, full: %d", i, full_out);
                 // write_in <= 0;
                 // @(posedge write_clk);
@@ -93,17 +93,16 @@ module fifo_async_circular_tb ();
         @(posedge read_clk);
         for (int i=0; i<N_TESTS*2; i++)
             begin
+            read_in <= 1;
+            @(posedge read_clk);
             if (!empty_out)
                 begin
-                read_in <= 1;
-                @(posedge read_clk);
                 if (data_read_out == TESTS_IN[i]) $display("Read test OK %d", i);
                 else  $display("read Test FAIL %d", i);
                 end
             else
                 $display("Buffer EMTPY! %d", i);
             end
-
     end
 
     // * READ BLOCK

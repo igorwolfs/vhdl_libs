@@ -49,7 +49,6 @@ If write_ptr != {~read_ptr_grey_w[BUFFER_ADDR_WIDTH:BUFFER_ADDR_WIDTH-1], read_p
 Wrap around is used here to see whether the buffer is empty or full.
 
 
-
 # Questions
 ### Question: Why not simply use a store and read signal instead of a clock, and simply write/read on a rising edge of that signal?
 - You might get noise issues / metastability issues.

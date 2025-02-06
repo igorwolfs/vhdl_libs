@@ -17,7 +17,7 @@ module fifo_async_write_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
         input write_in,
         input [PTR_WIDTH-1:0] rptr_g_sync_in,
         output reg [PTR_WIDTH-1:0] wptr_b_out, wptr_g_out,
-        output full_out
+        output reg full_out
     );
 
     /*
