@@ -62,7 +62,7 @@ module async_fifo_circular_parallel_tb;
     repeat(20) @(posedge read_clk);
     r_nrst_in = 1'b1;
 
-    repeat(2) begin 
+    repeat(2) begin
       for (int i=0; i<30; i++) begin
         @(posedge read_clk iff !empty_out);
         read_in = (i%2 == 0)? 1'b1 : 1'b0;
