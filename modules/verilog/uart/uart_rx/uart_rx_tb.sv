@@ -15,22 +15,15 @@ module uart_rx_tb();
     localparam DATA_BITS = 8;
     // TESTS
     localparam N_TESTS = 16;
-    localparam logic [7:0] TESTS_IN[15:0] = {
-    8'h23, 8'h25, 8'hff, 8'h13,8'h00, 8'h11, 8'h99, 8'h11,
-    8'h22, 8'hfa, 8'haf, 8'hba,8'hab, 8'h91, 8'h01, 8'h10
-    };
+    reg [DATA_BITS-1:0] wdata_q[$], test_data;
 
     // *** REGISTERS
-    reg div_clk = 0, baud_clk = 0, sysclk = 0;
-
+    reg sysclk = 0;
     reg nrst_in = 1;
     reg rx_serial_in = 1;
-    // For loop
-    reg [DATA_BITS-1:0] TEST_OUT_TEMP_reg;
-    reg [7:0] test_out;
 
     // *** Wires
-    wire data_rdy_out;
+    wire baud_clk, div_clk, data_rdy_out;
     wire [DATA_BITS-1:0] rx_data_out;
 
     always #5 sysclk = ~sysclk;
@@ -42,7 +35,7 @@ module uart_rx_tb();
                 .DATA_BITS(DATA_BITS), .SYSCLK(CLK_FREQ)) uart_rx_inst
                 (.nrst_in(nrst_in),
                 .sysclk_in(sysclk),
-                .clk_in(baud_div_clk),
+                .divclk_in(div_clk),
                 .rx_serial_in(rx_serial_in),
                 .data_rdy_out(data_rdy_out),
                 .rx_data_out(rx_data_out));
@@ -52,31 +45,30 @@ module uart_rx_tb();
 
     initial
     begin
-        @(posedge clk);
+        @(posedge sysclk);
         nrst_in <= 1;
-        @(posedge clk);
+        @(posedge sysclk);
         nrst_in <= 0;
-        @(posedge clk);
+        @(posedge sysclk);
         nrst_in <= 1;
-        @(posedge clk);
+        @(posedge sysclk)
         // **** TEST 1 ****
         for (int test_idx=0; test_idx<N_TESTS; test_idx = test_idx + 1)
             begin
-            TEST_OUT_TEMP_reg <= TESTS_IN[test_idx];
+            @(posedge baud_clk);
+            test_data <= $urandom;
             // Send start bit
             rx_serial_in <= 0;
-            #BAUD_RATE_PERIOD;
+            @(posedge baud_clk);
             // Send data bits
             for (integer i=0; i < DATA_BITS; i=i+1) begin
-                rx_serial_in <= TEST_OUT_TEMP_reg[i];
-                #BAUD_RATE_PERIOD;
-                end
+                rx_serial_in <= test_data[i];
+                @(posedge baud_clk);
+            end
             // Send stop bit
             rx_serial_in <= 1'b1;
             @(posedge data_rdy_out)
-            test_out <= rx_data_out;
-            #(2*BAUD_RATE_PERIOD);
-            if (test_out == TEST_OUT_TEMP_reg) $display("Test %d success!", test_idx);
+            if (rx_data_out == test_data) $display("Test %d success!", test_idx);
             else $display("Test %d FAIL", test_idx);
         end
 

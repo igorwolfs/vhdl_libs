@@ -23,7 +23,6 @@ module baud_generator
 
     parameter CLK_COUNT_DIV_MAX = (CLOCK_IN / (2 * OVERSAMPLING_RATE * BAUD_RATE));
     reg [$clog2(CLK_COUNT_DIV_MAX-1):0] divclk_cnt;
-    
     reg [$clog2(OVERSAMPLING_RATE-1):0] baudclk_cnt;
 
     always @(posedge clk_in)

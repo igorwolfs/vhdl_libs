@@ -58,26 +58,16 @@ module uart_echo_app
     .rx_serial_in(rx_serial_in), .rx_data_out(rx_data_out), .data_rdy_out(data_rdy_out)
     );
 
-    fifo_async_circular #(.DEPTH(DEPTH), .WIDTH(DATA_BITS)) fifo_async_circular_inst
+    // Sync the buffer with the sysclk for now, assuming we don't really need the asynchronous features.
+
+    fifo_async_circular #(.DEPTH(DEPTH), .WIDTH(DATA_BITS))
+    fifo_async_circular_inst
             (.read_clk(sysclk), .write_clk(sysclk),
             .write_in(rw_clk), .read_in(rw_clk),
-            .w_nrst_in(nrst_in)), r_nrst_in(nrst_in),
+            .w_nrst_in(nrst_in), .r_nrst_in(nrst_in),
             // ECHO so in-> rx, OUT -> tx
             .data_write_in(rx_data_out), .data_read_out(tx_data_in),
             .full_out(full_out), .empty_out(empty_out));
-
-
-    // we need to create the read and write clock in sync with the baud rates.
-    // Otherwise we might read / write twice were it was meant to be read / written only once.
-
-    baud_generator #(.BAUD_RATE(BAUD_RATE),
-    .CLOCK_IN(CLOCK_FREQUENCY),
-    .OVERSAMPLING_RATE(OVERSAMPLING_RATE)) read_write_clk
-    (
-        .nrst_in(nrst_in),
-        .clk_in(clk_in),
-        .clk_out(rw_clk)
-    );
 
 
 endmodule

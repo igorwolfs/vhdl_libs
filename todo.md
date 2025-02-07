@@ -6,6 +6,10 @@
 - Test the UART TX module in systemverilog
 - Combine the UART RX, TX module together with the baud generator
 - Create systemverilog tests for this module
+
+AND KEEP IT SIMPLE -> JUST FOCUS ON GETTING YOUR APPLICATION RUNNING
+WHENEVER A MORE PROFESSIONAL DESIGN IS NEEDED; LOOK FOR THE RESOURCES.
+Rule number 1 of making a project -> The project is done when it works.
 - Create a simple ECHO-application using the fifo buffer
 
 ## Fifo

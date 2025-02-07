@@ -29,11 +29,11 @@ Outputs:
 
 module uart_rx
   #(parameter OVERSAMPLING = 8,
-    parameter DATA_BITS = 8, parameter CLOCK_IN = 100_000_000) // Oversampling
+    parameter DATA_BITS = 8, parameter SYSCLK = 100_000_000) // Oversampling
   (
    input            nrst_in,
-   input            sysclk_in,
-   input            clk_in,
+   input            sysclk_in,          // CURRENTLY UNUSED
+   input            divclk_in,
    input            rx_serial_in,
    output reg       data_rdy_out,         // reg: single-bit output
    output reg [DATA_BITS-1:0] rx_data_out // 8-bit output [MSB, LSB]
@@ -47,23 +47,16 @@ module uart_rx
 
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
   reg [$clog2(OVERSAMPLING-1):0] cnt_baud_clk; //! WARNING: modified line here without testing
-
   reg [$clog2(DATA_BITS-1):0] data_bits_idx; // 3 bits -> max 8 states
   reg [1:0] SM_next_state;
-  reg rx_data_unstable;
-  reg rx_data_stable;
 
   // double flipflop
-  always @(posedge clk_in)
-  begin
-     begin
-     rx_data_unstable <= rx_serial_in;
-     rx_data_stable <= rx_data_unstable;
-     end
-  end
+  double_ff_sync #(.WIDTH(1)) ff_sync
+  (.nrst_in(nrst_in), .clkin(divclk_in),
+    .data_in(rx_serial_in), .data_out(rx_serial_stable));
 
   // Purpose: Control RX state machine
-  always @(posedge clk_in, negedge nrst_in)
+  always @(posedge divclk_in, negedge nrst_in)
   begin
     // If ~i_Rst_L: reset is triggered
     if (~nrst_in)
@@ -109,7 +102,7 @@ module uart_rx
       begin // <<< SM_rx_data_s
         if (cnt_baud_clk == OVERSAMPLING-1)
           begin
-          rx_data_out[data_bits_idx] <= rx_data_stable;
+          rx_data_out[data_bits_idx] <= rx_serial_stable;
           data_bits_idx <= data_bits_idx + 1;
           cnt_baud_clk <= 0;
           if (data_bits_idx == (DATA_BITS - 1))
@@ -139,3 +132,8 @@ module uart_rx
   end
 
 endmodule // UART_RX
+
+/**
+// TODO: Make everything run in the sysclk domain.
+        Use a baud_enable-pulse once sending is necessary, and let the timer run in a separate loop clocked by divclock.
+*/

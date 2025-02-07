@@ -43,6 +43,7 @@ module uart_tx
   (
    input       nrst_in,
    input       clk_in,
+   input       sysclk_in,
    input       data_rdy_in,
    input [7:0] tx_data_in,
    output reg  tx_serial_out,
@@ -68,7 +69,9 @@ module uart_tx
   begin
     if (~nrst_in)
     begin
+      
       SM_next_state <= SM_idle_s;  // Set to  SM_idle_s
+      //! ALL SET AT BAUD CLOCK RATE DURING DATA TRANSMISSION
       tx_busy_out <= 1'b0;
       tx_serial_out <= 1'b1;  // tx is 1 by default
       tx_done_out   <= 1'b0;
