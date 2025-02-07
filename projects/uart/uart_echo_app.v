@@ -20,7 +20,7 @@ module uart_echo_app
     //! This is needed to make sure the module is in a defined state at start!
     // COMMON
     input nrst_in,
-    input clk_in,
+    input sysclk,
 
     // RX
     input rx_serial_in,
@@ -42,16 +42,15 @@ module uart_echo_app
 
     // *******************************
     wire full_out, empty_out;
-    wire rw_clk;
     wire [DATA_BITS-1:0] data_in;
     wire [DATA_BITS-1:0] data_out;
 
 
 
 
-    uart #(.CLOCK_FREQUENCY(CLK_FREQUENCY), .BAUD_RATE(BAUD_RATE), .DATA_BITS(DATA_BITS)) 
+    uart #(.CLOCK_FREQUENCY(CLK_FREQUENCY), .BAUD_RATE(BAUD_RATE), .DATA_BITS(DATA_BITS))
     uart_inst
-    (.clk(clk), .nrst_in(nrst_in),
+    (.clk(sysclk), .nrst_in(nrst_in),
     // TX
     .data_rdy_in(data_rdy_in),
     .tx_data_in(tx_data_in), .tx_serial_out(tx_serial_out), //! MUST BE A PIN
@@ -59,12 +58,12 @@ module uart_echo_app
     .rx_serial_in(rx_serial_in), .rx_data_out(rx_data_out), .data_rdy_out(data_rdy_out)
     );
 
-    fifo_async_circular(.DEPTH(DEPTH), .WIDTH(DATA_BITS)) fifo_async_circular_inst
-            (.read_clk(), .write_clk()
+    fifo_async_circular #(.DEPTH(DEPTH), .WIDTH(DATA_BITS)) fifo_async_circular_inst
+            (.read_clk(sysclk), .write_clk(sysclk),
             .write_in(rw_clk), .read_in(rw_clk),
             .w_nrst_in(nrst_in)), r_nrst_in(nrst_in),
             // ECHO so in-> rx, OUT -> tx
-            .data_write_in(rx_data_out), .data_read_out(tx_data_in).
+            .data_write_in(rx_data_out), .data_read_out(tx_data_in),
             .full_out(full_out), .empty_out(empty_out));
 
 

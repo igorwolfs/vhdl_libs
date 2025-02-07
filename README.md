@@ -1,2 +1,3 @@
-# xilinx-experiments
-Repository for Xilinx Zynq experimentation
+# VHDL_libs
+Repository for develoopment of VHDL libs.
+
