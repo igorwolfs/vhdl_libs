@@ -42,7 +42,7 @@ module uart_tx
     parameter DATA_BITS = 8)
   (
    input       nrst_in,
-   input       clk_in,
+   input       baudclk_in,
    input       sysclk_in,
    input       data_rdy_in,
    input [7:0] tx_data_in,
@@ -64,90 +64,125 @@ module uart_tx
 
   // Purpose: Control TX state machine
   //! WARNING: errors here might happen due to asynchronous reset, consider removing the nrst_in to make sure the reset happens synchronously.
-  //always @(posedge clk_in or negedge nrst_in)
-  always @(posedge clk_in, negedge nrst_in)
+  always @(posedge sysclk_in or negedge nrst_in)
   begin
     if (~nrst_in)
-    begin
-      
-      SM_next_state <= SM_idle_s;  // Set to  SM_idle_s
-      //! ALL SET AT BAUD CLOCK RATE DURING DATA TRANSMISSION
-      tx_busy_out <= 1'b0;
-      tx_serial_out <= 1'b1;  // tx is 1 by default
-      tx_done_out   <= 1'b0;
-      cnt_baud_clk <= 0;
-    end
+        begin
+        tx_done_out <= 1'b0;
+        tx_busy_out <= 1'b0;
+        SM_next_state <= SM_idle_s;  // Set to  SM_idle_s
+        end
     else
-    begin
+      begin
       case (SM_next_state)
-      SM_idle_s :
-        begin // >>> SM_idle_s
-          tx_serial_out   <= 1'b1;         // Drive Line High for SM_idle_s
+        SM_idle_s:
+          begin
           tx_done_out     <= 1'b0;
-          cnt_baud_clk    <= 0;
           if (data_rdy_in == 1'b1)
-          begin
-            tx_busy_out   <= 1'b1;
-            data_bits    <= tx_data_in;   // Save data in internal register in case altering
-            SM_next_state <= SM_tx_start_s;
-          end
-          else
-            tx_busy_out   <= 1'b0;
-          end // <<< SM_idle_s
-
-
-      SM_tx_start_s :
-        begin // >>> SM_tx_start_s
-          tx_done_out <= 1'b0; // default assignment
-          tx_serial_out <= 1'b0;
-          if (cnt_baud_clk < OVERSAMPLING-1)
-          begin
-            cnt_baud_clk <= cnt_baud_clk + 1;
-          end
-          else
-          begin
-            cnt_baud_clk  <= 0;
-            data_bits_idx <= 0;
-            SM_next_state <= SM_tx_data_s;
-          end
-        end // <<< SM_tx_start_s
-
-
-      SM_tx_data_s :
-        begin // >>> SM_tx_data_s
-          tx_serial_out <= data_bits[data_bits_idx];
-
-          if (cnt_baud_clk == OVERSAMPLING-1)
             begin
-            cnt_baud_clk <= 0;
-            if (data_bits_idx == (DATA_BITS - 1))
-              SM_next_state   <= SM_tx_stop_s;
-            else
-              data_bits_idx <= data_bits_idx + 1;
+            tx_busy_out   <= 1'b1;
+            data_bits     <= tx_data_in;   // Save data in internal register in case altering
+            SM_next_state <= SM_tx_start_s;
             end
           else
-            cnt_baud_clk <= cnt_baud_clk + 1;
-        end // <<< SM_tx_data_s
-
-
-      SM_tx_stop_s :
-        begin // >>> SM_tx_stop_s
-          tx_serial_out <= 1'b1;
-
-          // Wait OVERSAMPLING-1 clock cycles for Stop bit to finish
-          if (cnt_baud_clk == OVERSAMPLING-1)
-          begin
-            SM_next_state = SM_idle_s;
-            tx_done_out = 1'b1;
-            cnt_baud_clk <= 0;
+            tx_busy_out   <= 1'b0;
           end
+        SM_tx_start_s:
+          begin
+          if (tx_serial_out == 1'b0)
+            SM_next_state <= SM_tx_data_s;
           else
-            cnt_baud_clk <= cnt_baud_clk + 1;
-        end // <<< SM_tx_stop_s
-
-      default :
-        SM_next_state <= SM_idle_s;
-    endcase
+            SM_next_state <= SM_tx_start_s;
+          end
+        SM_tx_data_s:
+          begin
+          if (data_bits_idx == DATA_BITS)
+              SM_next_state = SM_tx_stop_s;
+              //! ISSUE HERE IS PROBABLY WE'RE NOT GIVING THE SENDER THE TIME TO EXIT HERE
+          else
+            SM_next_state <= SM_tx_data_s;
+          end
+        SM_tx_stop_s:
+        begin
+            // Set back to 0
+            if (data_bits_idx == 0)
+              begin
+              SM_next_state <= SM_idle_s;
+              tx_done_out <= 1'b1; // Should assert after a full cycle of tx_stop
+              end
+            else
+              SM_next_state <= SM_tx_stop_s;
+        end
+        default:
+         SM_next_state <= SM_idle_s;
+      endcase
     end
   end
+
+  always @(posedge baudclk_in, negedge nrst_in)
+  begin
+    if (~nrst_in)
+      tx_serial_out <= 1'b1;  // tx is 1 by default
+    else
+      begin
+      case (SM_next_state)
+        SM_idle_s :
+            tx_serial_out   <= 1'b1;         // Drive Line High for SM_idle_s
+
+        SM_tx_start_s :
+          begin
+            tx_serial_out <= 1'b0;
+            data_bits_idx <= 0;
+          end
+
+        SM_tx_data_s :
+          begin
+            tx_serial_out <= data_bits[data_bits_idx];
+            data_bits_idx <= data_bits_idx + 1;
+          end
+
+        SM_tx_stop_s :
+            begin
+            data_bits_idx <= 0;
+            tx_serial_out <= 1'b1;
+            end
+        default :
+          tx_serial_out <= 1'b1;
+      endcase
+      end
+  end
 endmodule
+
+
+/*
+REWRITING
+
+// *** IN CHARGE OF signals, state machine
+@(posedge sysclk_in)
+  if data_rdy_in
+    - Copy data
+    - set tx_busy_out
+    - set state machine
+  if (serial_out set to 0 and state machine is start)
+    - change state machine to data
+  if data_bits is the max number -> set to stop state
+  if stop bit is high -> set back to idle
+  default:
+    - done_out
+    - state machine is 0
+
+// *** IN CHARGE OF serial_out
+@(posedge baudclk_in, negedge nrst_in)
+  if ~nrst_in
+    - Set serial_out
+  case
+    IDLE
+      - set serial_out
+    START
+      - set serial_out
+    DATA
+      - set tx_serial_out
+      - increment index
+    STOP
+      - set stop bit
+*/
