@@ -6,10 +6,11 @@
 - Test the UART TX module in systemverilog
 - Combine the UART RX, TX module together with the baud generator
 - Create systemverilog tests for this module
-- Create a simple ECHO-application
+- Create a simple ECHO-application using the fifo buffer
 
 ## Fifo
 - Make sure to understand the full fifo
+- change it to verilog code.
 
 ### bin2gray
 Make bin2gray hardawre conversion module

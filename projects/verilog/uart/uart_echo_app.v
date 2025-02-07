@@ -19,68 +19,66 @@ module uart_echo_app
 (
     //! This is needed to make sure the module is in a defined state at start!
     // COMMON
-    input rst_n_i,
-    input clk_i,
+    input nrst_in,
+    input clk_in,
 
     // RX
-    input uart_rx_data_i,
+    input rx_serial_in,
 
     // TX
-    output uart_tx_data_o,
+    output tx_serial_out,
+
     // dv out
-    input uart_tx_dv_o,
-    // Done out
-    output uart_tx_done
+    input uart_tx_dv_o
 );
+    // *******************************
+    // LOCAL PARAMETERS FOR TESTBENCH
+    localparam DATA_BITS = 8;
+    localparam BAUD_RATE = 115_200;
+    localparam CLK_FREQUENCY = 100_000_000;
+
+    // DEFINE FIFO DEPTH
+    localparam DEPTH = 16;
+
+    // *******************************
+    wire full_out, empty_out;
+    wire rw_clk;
+    wire [DATA_BITS-1:0] data_in;
+    wire [DATA_BITS-1:0] data_out;
 
 
-// *******************************
-localparam DEFAULT_CLOCK_IN = 10; // DEFAULT INPUT CLOCK PERIOD
-localparam CLOCK_PERIOD_NS = 20;
-localparam c_CLKS_PER_BIT = 217;
-localparam c_BIT_PERIOD = 8600;
-// Actual period used
-localparam CLK_PERIOD = (CLOCK_PERIOD_NS % DEFAULT_CLOCK_IN == 0) ? (CLOCK_PERIOD_NS / DEFAULT_CLOCK_IN) : CLOCK_PERIOD_NS;
-
-// Clock divider, should divide by CLOCK_PERIOD_NS
-reg [$clog2(CLK_PERIOD):0] clk_count_reg;
-reg clk_reg;
-
-// STATE MACHINE
-wire uart_rx_dv_o;
-wire [7:0] uart_rx_byte_reg;
-
-UART_RX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_RX_Inst
-(
- .i_Rst_L(rst_n_i),
- .i_Clock(clk_reg),
- .i_RX_Serial(uart_rx_data_i),
- .o_RX_DV(uart_rx_dv_o),
- .o_RX_Byte(uart_rx_byte_reg)
- );
 
 
- always @(posedge clk_i or negedge rst_n_i) begin
-    if (~rst_n_i)
-    begin
-        clk_count_reg <= 0;
-        clk_reg <= 1'b0;
-    end
-    else if (clk_count_reg >= CLK_PERIOD-1)
-    begin
-        clk_count_reg <= 0;
-        clk_reg <= ~clk_reg;
-    end
-    else begin
-        clk_count_reg <= clk_count_reg + 1;
-    end
- end
+    uart #(.CLOCK_FREQUENCY(CLK_FREQUENCY), .BAUD_RATE(BAUD_RATE), .DATA_BITS(DATA_BITS)) 
+    uart_inst
+    (.clk(clk), .nrst_in(nrst_in),
+    // TX
+    .data_rdy_in(data_rdy_in),
+    .tx_data_in(tx_data_in), .tx_serial_out(tx_serial_out), //! MUST BE A PIN
+    // RX
+    .rx_serial_in(rx_serial_in), .rx_data_out(rx_data_out), .data_rdy_out(data_rdy_out)
+    );
 
-/**
- After receiving a message, wait 100 clock cycles, and send it back
- - So you need a buffer which can handle the same amount of chars (100 x 8 bytes)
- */
-always @(posedge uart_rx_dv_o)
-begin
-    
-end
+    fifo_async_circular(.DEPTH(DEPTH), .WIDTH(DATA_BITS)) fifo_async_circular_inst
+            (.read_clk(), .write_clk()
+            .write_in(rw_clk), .read_in(rw_clk),
+            .w_nrst_in(nrst_in)), r_nrst_in(nrst_in),
+            // ECHO so in-> rx, OUT -> tx
+            .data_write_in(rx_data_out), .data_read_out(tx_data_in).
+            .full_out(full_out), .empty_out(empty_out));
+
+
+    // we need to create the read and write clock in sync with the baud rates.
+    // Otherwise we might read / write twice were it was meant to be read / written only once.
+
+    baud_generator #(.BAUD_RATE(BAUD_RATE),
+    .CLOCK_IN(CLOCK_FREQUENCY),
+    .OVERSAMPLING_RATE(OVERSAMPLING_RATE)) read_write_clk
+    (
+        .nrst_in(nrst_in),
+        .clk_in(clk_in),
+        .clk_out(rw_clk)
+    );
+
+
+endmodule

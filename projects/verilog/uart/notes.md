@@ -25,3 +25,14 @@
 - Send a hardware-stream of unprocessed signal-data
 - Perform signal processing on the data
 - Send it back through the TX module
+
+# Clock variety in UART
+Note that in UART, the system clock should be used to assert register signals like
+ - data_rdy_in
+ - tx_busy_out
+ - tx_done_out
+ - nrst_in
+
+ So that modules external to the uart module can use the same module to write / read data to the uart-peripheral.
+
+ Otherwise we'd have to export the baud-clock which would be pretty cumbersome.
