@@ -5,8 +5,8 @@ module uart_rx_tb();
 
     // *** CONSTANTS
     // CLK INPUT TO UART RX
-    localparam CLK_FREQ = 1_000_000_000; // Clock generated is 1 GHz
-    localparam BAUD_RATE = 115200;
+    localparam CLK_FREQ = 100_000_000; // Clock generated is 1 GHz
+    localparam BAUD_RATE = 115_200;
     localparam OVERSAMPLING_DIV = 8;
     localparam BAUD_OVERSAMPLED_TOGGLE_PERIOD = CLK_FREQ / (2 * BAUD_RATE * OVERSAMPLING_DIV) - 1;
     localparam BAUD_RATE_PERIOD = BAUD_OVERSAMPLED_TOGGLE_PERIOD * OVERSAMPLING_DIV * 2;
@@ -21,7 +21,8 @@ module uart_rx_tb();
     };
 
     // *** REGISTERS
-    reg clk = 0;
+    reg div_clk = 0, baud_clk = 0, sysclk = 0;
+
     reg nrst_in = 1;
     reg rx_serial_in = 1;
     // For loop
@@ -32,16 +33,22 @@ module uart_rx_tb();
     wire data_rdy_out;
     wire [DATA_BITS-1:0] rx_data_out;
 
+    always #5 sysclk = ~sysclk;
+    baud_generator  #(.BAUD_RATE(BAUD_RATE), .CLOCK_IN(CLK_FREQ), .OVERSAMPLING_RATE(OVERSAMPLING_DIV)) baud_gen_inst (
+        .baudclk_out(baud_clk), .divclk_out(div_clk), .clk_in(sysclk), .nrst_in(nrst_in));
+
+
     uart_rx #(.OVERSAMPLING(OVERSAMPLING_DIV),
-                .DATA_BITS(DATA_BITS)) uart_rx_inst
+                .DATA_BITS(DATA_BITS), .SYSCLK(CLK_FREQ)) uart_rx_inst
                 (.nrst_in(nrst_in),
-                .clk_in(clk),
+                .sysclk_in(sysclk),
+                .clk_in(baud_div_clk),
                 .rx_serial_in(rx_serial_in),
                 .data_rdy_out(data_rdy_out),
                 .rx_data_out(rx_data_out));
 
-    always
-        #(BAUD_OVERSAMPLED_TOGGLE_PERIOD) clk = ~clk;
+
+
 
     initial
     begin

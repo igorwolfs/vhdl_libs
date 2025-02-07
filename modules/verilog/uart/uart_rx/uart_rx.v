@@ -29,9 +29,10 @@ Outputs:
 
 module uart_rx
   #(parameter OVERSAMPLING = 8,
-    parameter DATA_BITS = 8) // Oversampling
+    parameter DATA_BITS = 8, parameter CLOCK_IN = 100_000_000) // Oversampling
   (
    input            nrst_in,
+   input            sysclk_in,
    input            clk_in,
    input            rx_serial_in,
    output reg       data_rdy_out,         // reg: single-bit output
