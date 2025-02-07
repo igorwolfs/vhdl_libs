@@ -57,8 +57,8 @@ module uart_tx
   localparam SM_tx_stop_s  = 2'b11;
 
   reg [$clog2(OVERSAMPLING)-1:0] cnt_baud_clk;
-
-  reg [2:0] SM_next_state;
+  reg [1:0] SM_tx_next_state;
+  reg [1:0] SM_DBG_CURR;
   reg [$clog2(DATA_BITS-1):0] data_bits_idx; // 3 bits -> max 8 states
   reg [DATA_BITS-1:0] data_bits; // 3 bits -> max 8 states
 
@@ -70,11 +70,11 @@ module uart_tx
         begin
         tx_done_out <= 1'b0;
         tx_busy_out <= 1'b0;
-        SM_next_state <= SM_idle_s;  // Set to  SM_idle_s
+        SM_tx_next_state <= SM_idle_s;  // Set to  SM_idle_s
         end
     else
       begin
-      case (SM_next_state)
+      case (SM_tx_next_state)
         SM_idle_s:
           begin
           tx_done_out     <= 1'b0;
@@ -82,7 +82,7 @@ module uart_tx
             begin
             tx_busy_out   <= 1'b1;
             data_bits     <= tx_data_in;   // Save data in internal register in case altering
-            SM_next_state <= SM_tx_start_s;
+            SM_tx_next_state <= SM_tx_start_s;
             end
           else
             tx_busy_out   <= 1'b0;
@@ -90,31 +90,31 @@ module uart_tx
         SM_tx_start_s:
           begin
           if (tx_serial_out == 1'b0)
-            SM_next_state <= SM_tx_data_s;
+            SM_tx_next_state <= SM_tx_data_s;
           else
-            SM_next_state <= SM_tx_start_s;
+            SM_tx_next_state <= SM_tx_start_s;
           end
         SM_tx_data_s:
           begin
           if (data_bits_idx == DATA_BITS)
-              SM_next_state = SM_tx_stop_s;
+              SM_tx_next_state = SM_tx_stop_s;
               //! ISSUE HERE IS PROBABLY WE'RE NOT GIVING THE SENDER THE TIME TO EXIT HERE
           else
-            SM_next_state <= SM_tx_data_s;
+            SM_tx_next_state <= SM_tx_data_s;
           end
         SM_tx_stop_s:
         begin
             // Set back to 0
             if (data_bits_idx == 0)
               begin
-              SM_next_state <= SM_idle_s;
+              SM_tx_next_state <= SM_idle_s;
               tx_done_out <= 1'b1; // Should assert after a full cycle of tx_stop
               end
             else
-              SM_next_state <= SM_tx_stop_s;
+              SM_tx_next_state <= SM_tx_stop_s;
         end
         default:
-         SM_next_state <= SM_idle_s;
+         SM_tx_next_state <= SM_idle_s;
       endcase
     end
   end
@@ -125,24 +125,29 @@ module uart_tx
       tx_serial_out <= 1'b1;  // tx is 1 by default
     else
       begin
-      case (SM_next_state)
+      case (SM_tx_next_state)
         SM_idle_s :
+          begin
+            SM_DBG_CURR <= SM_idle_s;
             tx_serial_out   <= 1'b1;         // Drive Line High for SM_idle_s
-
+          end
         SM_tx_start_s :
           begin
+            SM_DBG_CURR <= SM_tx_start_s;
             tx_serial_out <= 1'b0;
             data_bits_idx <= 0;
           end
 
         SM_tx_data_s :
           begin
+            SM_DBG_CURR <= SM_tx_data_s;
             tx_serial_out <= data_bits[data_bits_idx];
             data_bits_idx <= data_bits_idx + 1;
           end
 
         SM_tx_stop_s :
             begin
+            SM_DBG_CURR <= SM_tx_stop_s;
             data_bits_idx <= 0;
             tx_serial_out <= 1'b1;
             end
@@ -185,4 +190,8 @@ REWRITING
       - increment index
     STOP
       - set stop bit
+*/
+/**
+// TODO: Make sure to drive this clock signal using a pulse, instead of the clock generated in the baud-generator for the future.
+          For now it seems ok since the actual baud_rate is muuuch higher than the clock pulse, and the amount of logic driven is not that high.
 */

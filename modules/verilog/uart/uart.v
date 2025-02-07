@@ -54,22 +54,21 @@ module uart
     localparam OVERSAMPLING_RATE = 8;
 
     // REFERENCE CLOCK
-    wire uart_clk;
+    wire baud_clk, div_clk;
 
-    baud_generator #(.BAUD_RATE(BAUD_RATE),
-    .CLOCK_IN(CLOCK_FREQUENCY),
+    baud_generator #(.BAUD_RATE(BAUD_RATE), .CLOCK_IN(CLOCK_FREQUENCY),
     .OVERSAMPLING_RATE(OVERSAMPLING_RATE)) baud_generator_inst
     (
-        .nrst_in(nrst_in),
-        .clk_in(clk),
-        .clk_out(uart_clk)
+        .nrst_in(nrst_in), .clk_in(clk),
+        .divclk_out(div_clk), .baudclk_out(baud_clk)
     );
 
     uart_tx #(.OVERSAMPLING(OVERSAMPLING_RATE),
-    .DATA_BITS(DATA_BITS)) uart_tx_inst
+    .DATA_BITS(DATA_BITS), .SYSCLK(CLOCK_FREQUENCY)) uart_tx_inst
     (
         .nrst_in(nrst_in),
-        .clk_in(uart_clk),
+        .baudclk_in(baud_clk),
+        .sysclk_in(clk),
         .data_rdy_in(data_rdy_in),
         .tx_data_in(tx_data_in),
         .tx_serial_out(tx_serial_out),
@@ -78,9 +77,10 @@ module uart
     );
 
     uart_rx #(.OVERSAMPLING(OVERSAMPLING_RATE),
-                .DATA_BITS(DATA_BITS)) uart_rx_inst
+                .DATA_BITS(DATA_BITS), .SYSCLK(CLOCK_FREQUENCY)) uart_rx_inst
                 (.nrst_in(nrst_in),
-                .clk_in(uart_clk),
+                .sysclk_in(clk),
+                .divclk_in(div_clk),
                 .rx_serial_in(rx_serial_in),
                 .data_rdy_out(data_rdy_out),
                 .rx_data_out(rx_data_out)

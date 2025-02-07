@@ -57,7 +57,7 @@ module uart_tx_tb();
             begin
                 data_rdy_in <= 1'b1;
                 @(negedge tx_serial_out);
-                data_rdy_in <= 1'b0;
+                // data_rdy_in <= 1'b0;
                 // Save this data for comparison.
                 tx_data_prev <= tx_data_next;
                 tx_data_next <= $urandom; // Put new data on start bit

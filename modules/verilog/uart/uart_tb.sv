@@ -14,18 +14,12 @@ module uart_tb();
     localparam BAUD_RATE = 115_200;
     localparam CLK_FREQUENCY = 100_000_000;
     //! WARNING, OFFSET HERE MIGHT BE TOO BIG, WAITING MIGHT NEED TO BE SYNCED TO BAUD CLOCK (but shouldn't be an issue normally)
-    localparam BAUD_RATE_PERIOD = CLK_FREQUENCY/115200;
+    localparam BAUD_RATE_PERIOD_TICKS = (CLK_FREQUENCY/BAUD_RATE)*10; // x 10 due to ns reference
 
     // TESTING
     localparam N_TESTS = 16;
-    localparam logic [7:0] TESTS_IN[15:0] = {
-    8'h23, 8'h25, 8'hff, 8'h13,8'h00, 8'h11, 8'h99, 8'h11,
-    8'h22, 8'hfa, 8'haf, 8'hba,8'hab, 8'h91, 8'h01, 8'h10
-    };
-    
-    reg [DATA_BITS-1:0] tx_data_next;
-    reg [DATA_BITS-1:0] tx_data_prev;
-    
+    reg [DATA_BITS-1:0] wdata_q[$];
+
     // RX AND TX
     reg nrst_in = 1;
     reg   clk = 0;
@@ -67,28 +61,38 @@ module uart_tb();
 
 initial
     begin
-        #(2*BAUD_RATE_PERIOD);
+        #BAUD_RATE_PERIOD_TICKS;
         nrst_in <= 1;
-        #(2*BAUD_RATE_PERIOD);
+        #BAUD_RATE_PERIOD_TICKS;
         nrst_in <= 0;
-        #(2*BAUD_RATE_PERIOD);
+        #BAUD_RATE_PERIOD_TICKS;
         nrst_in <= 1;
+        #BAUD_RATE_PERIOD_TICKS;
 
+        tx_data_in = $urandom;
+        wdata_q.push_back(tx_data_in);
+        data_rdy_in <= 1'b1; // Keep data ready high to see if it can just keep sending.
        for (integer test_idx=0; test_idx<=N_TESTS-1; test_idx = test_idx + 1)
         begin
-
-            tx_data_in <= TESTS_IN[test_idx];
             // Write starting bit and trigger send
-            data_rdy_in <= 1'b1; // Keep data ready high to see if it can just keep sending.
-            @(negedge tx_serial_out);
-            // data_rdy_in <= 1'b0;
+            @(negedge tx_serial_out); // Start bit occurred
+            tx_data_in = $urandom; // Load new data already -> for continuous sending
+            wdata_q.push_back(tx_data_in);
 
             @(posedge data_rdy_out);
-            if (rx_data_out == TESTS_IN[test_idx]) $display("Test %d success!", test_idx+1);
-            else $display("Test %d FAIL", test_idx);
+            if (rx_data_out == wdata_q[test_idx]) $display("Test %d success!", test_idx);
+            else $display("Test %d FAIL 0x%x != 0x%x", test_idx, rx_data_out, wdata_q[test_idx]);
         end
         data_rdy_in <= 1'b0;
         $finish;
     end
 
 endmodule
+
+
+/**
+MAJOR WARNING: make sure when appending tests to an array, your logic is combinatorial. 
+You should EITHER
+- have a blocking assignment "=" assigning your test to the tx_input of your uart
+- OR have a non-blocking assignment "<=" with a clk-edge between your assignment and your appending it to the array.
+*/

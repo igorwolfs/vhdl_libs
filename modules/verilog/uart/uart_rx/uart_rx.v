@@ -48,7 +48,7 @@ module uart_rx
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
   reg [$clog2(OVERSAMPLING-1):0] cnt_baud_clk; //! WARNING: modified line here without testing
   reg [$clog2(DATA_BITS-1):0] data_bits_idx; // 3 bits -> max 8 states
-  reg [1:0] SM_next_state;
+  reg [1:0] SM_rx_next_state;
 
   // double flipflop
   double_ff_sync #(.WIDTH(1)) ff_sync
@@ -61,14 +61,14 @@ module uart_rx
     // If ~i_Rst_L: reset is triggered
     if (~nrst_in)
     begin
-      SM_next_state = SM_idle_s;
+      SM_rx_next_state = SM_idle_s;
       data_rdy_out = 1'b0;
       rx_data_out = 0;
       data_bits_idx <= 0;
     end
     else
     begin
-      case (SM_next_state)
+      case (SM_rx_next_state)
 
       SM_idle_s :
       begin       // >>> SM_idle_s
@@ -76,9 +76,9 @@ module uart_rx
           cnt_baud_clk    <= 0;
 
           if (rx_serial_in == 1'b0)
-            SM_next_state <= SM_rx_start_s;
+            SM_rx_next_state <= SM_rx_start_s;
           else
-            SM_next_state <= SM_idle_s;
+            SM_rx_next_state <= SM_idle_s;
         end      // <<< SM_idle_s
 
       SM_rx_start_s :
@@ -88,10 +88,10 @@ module uart_rx
           if (rx_serial_in == 1'b0)
             begin
               cnt_baud_clk <= 0;  // reset counter, found the middle
-              SM_next_state <= SM_rx_data_s;
+              SM_rx_next_state <= SM_rx_data_s;
             end
           else
-            SM_next_state <= SM_idle_s;
+            SM_rx_next_state <= SM_idle_s;
         end
         else
         begin
@@ -106,7 +106,7 @@ module uart_rx
           data_bits_idx <= data_bits_idx + 1;
           cnt_baud_clk <= 0;
           if (data_bits_idx == (DATA_BITS - 1))
-            SM_next_state <= SM_rx_stop_s;
+            SM_rx_next_state <= SM_rx_stop_s;
           end
         else
           begin
@@ -120,13 +120,13 @@ module uart_rx
           data_rdy_out <= 1'b1;
           cnt_baud_clk <= 0;
           data_bits_idx <= 0;
-          SM_next_state <= SM_idle_s;
+          SM_rx_next_state <= SM_idle_s;
           end
         else
           cnt_baud_clk <= cnt_baud_clk + 1;
         end // <<< SM_rx_stop_s
       default:
-        SM_next_state <= SM_idle_s;
+        SM_rx_next_state <= SM_idle_s;
     endcase
     end
   end
