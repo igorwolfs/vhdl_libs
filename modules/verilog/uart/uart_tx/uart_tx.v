@@ -42,7 +42,7 @@ module uart_tx
     parameter DATA_BITS = 8)
   (
    input       nrst_in,
-   input       baudclk_in,
+   input       baudpulse_in,
    input       sysclk_in,
    input       data_rdy_in,
    input [7:0] tx_data_in,
@@ -56,7 +56,6 @@ module uart_tx
   localparam SM_tx_data_s  = 2'b10;
   localparam SM_tx_stop_s  = 2'b11;
 
-  reg [$clog2(OVERSAMPLING)-1:0] cnt_baud_clk;
   reg [1:0] SM_tx_next_state;
   reg [1:0] SM_DBG_CURR;
   reg [$clog2(DATA_BITS-1):0] data_bits_idx; // 3 bits -> max 8 states
@@ -67,7 +66,8 @@ module uart_tx
   always @(posedge sysclk_in or negedge nrst_in)
   begin
     if (~nrst_in)
-        begin
+        begin      
+        tx_serial_out <= 1'b1;  // tx is 1 by default
         tx_done_out <= 1'b0;
         tx_busy_out <= 1'b0;
         SM_tx_next_state <= SM_idle_s;  // Set to  SM_idle_s
@@ -120,11 +120,9 @@ module uart_tx
     end
   end
 
-  always @(posedge baudclk_in, negedge nrst_in)
+  always @(posedge sysclk_in)
   begin
-    if (~nrst_in)
-      tx_serial_out <= 1'b1;  // tx is 1 by default
-    else
+    if (baudpulse_in)
       begin
       case (SM_tx_next_state)
         SM_idle_s :
@@ -159,6 +157,7 @@ module uart_tx
 
       endcase
       end
+    else;
   end
 endmodule
 
