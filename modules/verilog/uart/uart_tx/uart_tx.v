@@ -110,6 +110,7 @@ module uart_tx
               SM_tx_next_state <= SM_idle_s;
               tx_done_out <= 1'b1; // Should assert after a full cycle of tx_stop
               end
+              
             else
               SM_tx_next_state <= SM_tx_stop_s;
         end
@@ -131,6 +132,7 @@ module uart_tx
             SM_DBG_CURR <= SM_idle_s;
             tx_serial_out   <= 1'b1;         // Drive Line High for SM_idle_s
           end
+
         SM_tx_start_s :
           begin
             SM_DBG_CURR <= SM_tx_start_s;
@@ -151,8 +153,10 @@ module uart_tx
             data_bits_idx <= 0;
             tx_serial_out <= 1'b1;
             end
+
         default :
           tx_serial_out <= 1'b1;
+
       endcase
       end
   end

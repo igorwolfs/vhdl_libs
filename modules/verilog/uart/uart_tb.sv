@@ -35,24 +35,20 @@ module uart_tb();
     wire rx_serial_in; //! Must be a pin
     wire [(DATA_BITS-1):0] rx_data_out;
     wire data_rdy_out;
-    
+
     assign rx_serial_in = tx_serial_out;
-   
+
     uart #(.CLOCK_FREQUENCY(CLK_FREQUENCY),
             .BAUD_RATE(BAUD_RATE),
             .DATA_BITS(DATA_BITS)) uart_inst
     (
-    .clk(clk),
-    .nrst_in(nrst_in),
+    .clk(clk), .nrst_in(nrst_in),
     // TX
-    .data_rdy_in(data_rdy_in),
-    .tx_data_in(tx_data_in),
-    .tx_done_out(tx_done_out),
-    .tx_serial_out(tx_serial_out), //! MUST BE A PIN
+    .data_rdy_in(data_rdy_in), .tx_data_in(tx_data_in),
+    .tx_done_out(tx_done_out), .tx_serial_out(tx_serial_out), //! MUST BE A PIN
     // RX
     .rx_serial_in(rx_serial_in), //! MUST BE A PIN
-    .rx_data_out(rx_data_out),
-    .data_rdy_out(data_rdy_out)
+    .rx_data_out(rx_data_out), .data_rdy_out(data_rdy_out)
     );
 
     always
@@ -71,8 +67,9 @@ initial
 
         tx_data_in = $urandom;
         wdata_q.push_back(tx_data_in);
+
         data_rdy_in <= 1'b1; // Keep data ready high to see if it can just keep sending.
-       for (integer test_idx=0; test_idx<=N_TESTS-1; test_idx = test_idx + 1)
+        for (integer test_idx=0; test_idx<=N_TESTS-1; test_idx = test_idx + 1)
         begin
             // Write starting bit and trigger send
             @(negedge tx_serial_out); // Start bit occurred

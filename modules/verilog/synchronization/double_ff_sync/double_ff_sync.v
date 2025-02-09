@@ -1,6 +1,9 @@
 `timescale 1ns/10ps
 
-module double_ff_sync #(parameter WIDTH=8)
+/**
+Make sure the NRESET_VALUE is set to 1 by default when dealing with for example a UART RX FF
+*/
+module double_ff_sync #(parameter WIDTH=8, parameter NRST_VAL = 0)
         (
             input clkin,
             input nrst_in,
@@ -11,8 +14,8 @@ module double_ff_sync #(parameter WIDTH=8)
         always @(posedge clkin) begin
             if (~nrst_in)
                 begin
-                data_out <= 0;
-                data_tmp <= 0;
+                data_out <= NRST_VAL;
+                data_tmp <= NRST_VAL;
                 end
             else
                 {data_out, data_tmp} <= {data_tmp, data_in};

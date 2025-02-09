@@ -15,46 +15,50 @@ module baud_generator
      parameter CLOCK_IN = 100_000_000,
      parameter OVERSAMPLING_RATE = 8) // 3 bits
     (
-    output reg baudclk_out,
-    output reg divclk_out,
+    output reg baudpulse_out,
+    output reg divpulse_out,
     input clk_in,
     input nrst_in
     );
 
-    parameter CLK_COUNT_DIV_MAX = (CLOCK_IN / (2 * OVERSAMPLING_RATE * BAUD_RATE));
-    reg [$clog2(CLK_COUNT_DIV_MAX-1):0] divclk_cnt;
-    reg [$clog2(OVERSAMPLING_RATE-1):0] baudclk_cnt;
+    // Note: we only need a pulse on the rising edge, NOT on the rising AND the falling edge -> So the division by 2 is unnecessary.
+    //! HOWEVER: make sure to also fix the baud rate pulse.
+    parameter CLK_COUNT_DIV_MAX = (CLOCK_IN / (OVERSAMPLING_RATE * BAUD_RATE));
+    reg [$clog2(CLK_COUNT_DIV_MAX-1):0] divpulse_cnt;
+    reg [$clog2(OVERSAMPLING_RATE-1):0] baudpulse_cnt;
 
     always @(posedge clk_in)
     begin
         if (~nrst_in)
             begin
             // Counters
-            divclk_cnt <= 0;
-            baudclk_cnt <= 0;
+            divpulse_cnt <= 0;
+            baudpulse_cnt <= 0;
             // Clocks
-            divclk_out <= 0;
-            baudclk_out <= 0;
+            divpulse_out <= 0;
+            baudpulse_out <= 0;
             end
         else
             begin
-            if (divclk_cnt < CLK_COUNT_DIV_MAX-1)
+            if (divpulse_cnt < CLK_COUNT_DIV_MAX-1)
             begin
-                divclk_cnt = divclk_cnt + 1;
+                divpulse_out <= 0;
+                baudpulse_out <= 0;
+                divpulse_cnt <= divpulse_cnt + 1;
             end
-            else if (divclk_cnt == CLK_COUNT_DIV_MAX-1)
+            else if (divpulse_cnt == CLK_COUNT_DIV_MAX-1)
             begin
                 // Divided baud clock
-                divclk_out = ~divclk_out;
-                divclk_cnt = 0;
+                divpulse_out <= 1;
+                divpulse_cnt <= 0;
                 // Baud clock
-                if (baudclk_cnt == OVERSAMPLING_RATE-1)
+                if (baudpulse_cnt == OVERSAMPLING_RATE-1)
                     begin
-                    baudclk_out <= ~baudclk_out;
-                    baudclk_cnt <= 0;
+                    baudpulse_out <= 1;
+                    baudpulse_cnt <= 0;
                     end
-                else
-                    baudclk_cnt <= baudclk_cnt + 1;
+                else            
+                    baudpulse_cnt <= baudpulse_cnt + 1;
             end
         end
     end
@@ -64,5 +68,4 @@ module baud_generator
     */
 
 
-    
 endmodule

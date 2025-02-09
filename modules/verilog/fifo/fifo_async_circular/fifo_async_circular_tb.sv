@@ -48,8 +48,8 @@ module fifo_async_circular_tb ();
 
     // *** DATA
     reg [WIDTH-1:0] data_write_in = 0;
+    reg [WIDTH-1:0] data_read_out=0;
     reg w_nrst_in = 0, r_nrst_in = 0;
-    wire [WIDTH-1:0] data_read_out;
     wire full_out, empty_out;
     reg write_in = 0, read_in = 0;
 
