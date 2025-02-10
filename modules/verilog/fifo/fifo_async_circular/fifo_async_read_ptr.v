@@ -14,7 +14,7 @@ Read pointer
 
 module fifo_async_read_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
     (
-        input clk_in, nrst_in, read_in,
+        input read_clk, nrst_in, read_in,
         input [PTR_WIDTH-1:0] wptr_g_sync_in,
         output reg [PTR_WIDTH-1:0] rptr_b_out, rptr_g_out,
         output reg empty_out
@@ -28,12 +28,12 @@ module fifo_async_read_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
     wire [PTR_WIDTH-1:0] wptr_b_sync;
     wire rempty;
 
-    gray2bin #(.N(PTR_WIDTH)) gray2bin_inst (wptr_g_sync_in, wptr_b_sync);
+    gray2bin #(.N(PTR_WIDTH)) gray2bin_inst (.gray_in(wptr_g_sync_in), .bin_out(wptr_b_sync));
     assign rptr_b_next = rptr_b_out + (read_in & !empty_out);
     assign rptr_g_next = (rptr_b_next >> 1) ^ rptr_b_next;
     assign rempty = (wptr_b_sync == rptr_b_next);
 
-    always @(posedge clk_in, negedge nrst_in)
+    always @(posedge read_clk)
     begin
         if (~nrst_in)
             begin
@@ -46,7 +46,7 @@ module fifo_async_read_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
             rptr_g_out <= rptr_g_next;
             end
     end
-    always @(posedge clk_in or negedge nrst_in)
+    always @(posedge read_clk)
     begin
         if (~nrst_in)
             empty_out <= 1;

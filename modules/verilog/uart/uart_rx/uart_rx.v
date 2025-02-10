@@ -28,15 +28,14 @@ Outputs:
 
 
 module uart_rx
-  #(parameter OVERSAMPLING = 8, parameter DATA_BITS = 8, parameter SYSCLK = 100_000_000) // Oversampling
+  #(parameter OVERSAMPLING = 8, parameter DATA_BITS = 8) // Oversampling
   (
    input            nrst_in,
    input            sysclk_in,          // CURRENTLY UNUSED
    input            divpulse_in,
    input            rx_serial_in,
    output reg       data_rdy_out,         // reg: single-bit output
-   output reg [DATA_BITS-1:0] rx_data_out, // 8-bit output [MSB, LSB]
-   output reg [1:0] SM_DBG_CURR
+   output reg [DATA_BITS-1:0] rx_data_out // 8-bit output [MSB, LSB]
    );
 
    // CONSTANTS
@@ -45,6 +44,7 @@ module uart_rx
   localparam SM_rx_data_s      = 2'b10;
   localparam SM_rx_stop_s      = 2'b11;
 
+  wire rx_serial_stable;
 
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
   reg [$clog2(OVERSAMPLING-1):0] divpulse_cnt; //! WARNING: modified line here without testing
@@ -60,7 +60,6 @@ module uart_rx
   begin
     if (~nrst_in)
       begin
-      SM_DBG_CURR <= 0;
       data_rdy_out <= 1'b0;
       rx_data_out <= 0;
       SM_rx_next_state <= SM_rx_idle_s;
@@ -79,7 +78,7 @@ module uart_rx
           //! DATA READY OUT
           data_rdy_out <= 1'b0;
           if (rx_serial_stable == 1'b0) // If 1 is registered -> set state machine in start mode, start sampling at center
-              SM_rx_next_state <= SM_rx_start_s;
+            SM_rx_next_state <= SM_rx_start_s;
           else
             SM_rx_next_state <= SM_rx_idle_s;
           end
@@ -106,6 +105,8 @@ module uart_rx
               SM_rx_next_state <= SM_rx_idle_s;
               end
             end
+         default:
+           SM_rx_next_state <= SM_rx_idle_s;
       endcase
   end
 
@@ -119,7 +120,6 @@ module uart_rx
           begin
             if (divpulse_cnt == (OVERSAMPLING-1)/2) // Sample halfway the start-bit
             begin
-              SM_DBG_CURR <= SM_rx_start_s;
               divpulse_cnt <= 0;  // reset counter, found the middle
               data_bits_idx <= data_bits_idx + 1;
             end
@@ -130,7 +130,6 @@ module uart_rx
           begin
           if (divpulse_cnt == OVERSAMPLING-1)
             begin
-            SM_DBG_CURR <= SM_rx_data_s;
             rx_data_out[data_bits_idx-1] <= rx_serial_stable;
             data_bits_idx <= data_bits_idx + 1;
             divpulse_cnt <= 0;
@@ -142,7 +141,6 @@ module uart_rx
           begin
           if (divpulse_cnt == OVERSAMPLING-1)
             begin
-            SM_DBG_CURR <= SM_rx_stop_s;
             divpulse_cnt <= 0;
             data_bits_idx <= data_bits_idx + 1;
             end
@@ -150,16 +148,13 @@ module uart_rx
             divpulse_cnt <= divpulse_cnt + 1;
           end
         default:
-          begin
-            SM_DBG_CURR <= SM_rx_idle_s;
-            SM_rx_next_state <= SM_rx_idle_s;
-          end
+        ;
     endcase
   end
   else;
 end
 
-endmodule;
+endmodule
 
 /**
 CENTRAL DESIGN IDEA

@@ -71,14 +71,14 @@ module fifo_async_circular
     wire [PTR_WIDTH-1:0] wptr_g_sync, rptr_g_sync;
     // READ PTR
     fifo_async_read_ptr #(.WIDTH(WIDTH), .PTR_WIDTH(PTR_WIDTH)) read_ptr
-    (.clk_in(read_clk), .nrst_in(r_nrst_in), .read_in(read_in),
+    (.read_clk(read_clk), .nrst_in(r_nrst_in), .read_in(read_in),
     .wptr_g_sync_in(wptr_g_sync),
     .rptr_b_out(rptr_b), .rptr_g_out(rptr_g),
     .empty_out(empty_out));
 
     // WRITE PTR
     fifo_async_write_ptr #(.WIDTH(WIDTH), .PTR_WIDTH(PTR_WIDTH)) write_ptr
-    (.clk_in(write_clk), .nrst_in(w_nrst_in), .write_in(write_in),
+    (.write_clk(write_clk), .nrst_in(w_nrst_in), .write_in(write_in),
     .rptr_g_sync_in(rptr_g_sync),
     .wptr_b_out(wptr_b), .wptr_g_out(wptr_g), .full_out(full_out));
 
@@ -92,8 +92,7 @@ module fifo_async_circular
 
     // MEMORY DECLARE
     fifo_memory #(.WIDTH(WIDTH), .DEPTH(DEPTH), .PTR_WIDTH(PTR_WIDTH)) fifo_memory_inst
-    (.w_clk(write_clk), .write_in(write_in),
-    .read_in(read_in),
+    (.write_clk(write_clk), .write_in(write_in),
     .full_in(full_out), .empty_in(empty_out),
     .read_ptr_in(rptr_b), .write_ptr_in(wptr_b),
     .data_write_in(data_write_in), .data_read_out(data_read_out));

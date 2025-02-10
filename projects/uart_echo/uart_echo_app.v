@@ -15,10 +15,8 @@ NOTE:
 - 1 bit should be sent every 1/115200 seconds
 */
 
-module uart_echo_app();
+module uart_echo_app (
 // ? >>> PHYSICAL IMPL
-/*
-(
     //! This is needed to make sure the module is in a defined state at start!
     // COMMON
     input nrst_in,
@@ -28,9 +26,9 @@ module uart_echo_app();
     input rx_serial_in,
 
     // TX
-    output tx_serial_out,
+    output tx_serial_out
 );
-*/
+
 // ? <<< PHYSICAL IMPL
 
     // *******************************
@@ -49,34 +47,37 @@ module uart_echo_app();
 
 
     //! >>> SIMULATION CASE
+    /*
     // PARAMETERS
-    localparam N_TESTS = 16;
-    
+    localparam N_TESTS = 32;
+
     // CLOCK DEFINITION
     // PARAM
     parameter BAUD_RATE_TICKS = (CLK_FREQUENCY / BAUD_RATE) * 10; // We're dealing with a ns clock
     reg sysclk = 0;
     always #5 sysclk = ~sysclk;
-    
+
     reg [DATA_BITS-1:0] rdata_q[$], rx_test_byte;
 
     // RX INPUT
     reg rx_serial_in = 1;
     reg nrst_in = 0;
-    
+
     // Wire
     wire tx_done_out;
     wire [DATA_BITS-1:0] rx_data_out;
-    wire [DATA_BITS-1:0] tx_data_in;
-    
+    */
     //! <<< SIMULATION CASE
+    // Wires
+    wire [DATA_BITS-1:0] tx_data_in, rx_data_out;
+    wire tx_done_out, data_rdy_out;
 
     // *** REGISTERS
-    reg data_rdy_in = 0;
-    reg write_in = 0, read_in = 0;
+    reg data_rdy_in;
+    reg write_in, read_in;
 
     uart #(.CLOCK_FREQUENCY(CLK_FREQUENCY), .BAUD_RATE(BAUD_RATE), .DATA_BITS(DATA_BITS))
-    uart_inst (.clk(sysclk), .nrst_in(nrst_in),
+    uart_inst (.sysclk(sysclk), .nrst_in(nrst_in),
     // TX
     .data_rdy_in(data_rdy_in), .tx_data_in(tx_data_in),
     .tx_serial_out(tx_serial_out), .tx_done_out(tx_done_out), //! MUST BE A PIN
@@ -86,10 +87,13 @@ module uart_echo_app();
     // Sync the buffer with the sysclk for now, assuming we don't really need the asynchronous features.
     //! ERROR: The signal that makes the uart out write to the buffer is asserted for too long of a time, shorten it.
     // data_rdy_out should only be high for a single clock cycle, otherwise it keeps saving stuff
+    wire read_clk, write_clk;
+    assign read_clk  = sysclk;
+    assign write_clk = sysclk;
     
     fifo_async_circular #(.DEPTH(DEPTH), .WIDTH(DATA_BITS))
     fifo_async_circular_inst
-            (.read_clk(sysclk), .write_clk(sysclk),
+            (.read_clk(read_clk), .write_clk(write_clk),
             .write_in(data_rdy_out), // Attempt to write data into buffer directly from UART.
             .read_in(read_in),
             .w_nrst_in(nrst_in), .r_nrst_in(nrst_in),
@@ -99,6 +103,7 @@ module uart_echo_app();
 
 
     //! >>> SIMULATION CASE
+    /*
     initial begin
         rx_serial_in <= 1;
         nrst_in <= 1;
@@ -125,7 +130,7 @@ module uart_echo_app();
 
     // Every time data is sent over tx, it should be measured
     reg [DATA_BITS-1:0] tx_data_received;
-    initial 
+    initial
     begin
         for (integer test_idx = 0; test_idx < N_TESTS; test_idx = test_idx + 1)
         begin
@@ -143,6 +148,7 @@ module uart_echo_app();
         // WAIT HERE UNTIL TDATA ARRAY FILLS UP
         // COMPARE TDATA ARRAY WITH RDATA ARRAY
     end
+    */
     //! <<< SIMULATION CASE
 
     /**
@@ -150,21 +156,64 @@ module uart_echo_app();
         - Take data from the buffer
         - Write it to the fifo
     */
+    reg [$clog2(5):0] rdy_cnt; // COUNT TO ACCOUNT FOR DELAY IN SYNCING BETWEEN 2 CLOCKS FOR ASYNC FIFO, OTHERWISE FULL SIGNAL IS ASSERTED TOO LONG
     always @(posedge sysclk)
     begin
-        if (!empty_out)
-            data_rdy_in <= 1'b1;
-        else
+        if (~nrst_in)
+            begin
+            read_in <= 1'b0;
             data_rdy_in <= 1'b0;
+            rdy_cnt <= 0;
+            end
+        else
+            begin
+            if (rdy_cnt == 5)
+            begin
+                if (full_out)
+                    begin
+                    rdy_cnt <= 0;
+                    read_in <= 1'b1;
+                    data_rdy_in <= 1'b1;
+                    end
+                else;
+            end
+            else
+            begin
+                read_in <= 1'b0;
+                data_rdy_in <= 1'b0;
+                rdy_cnt <= rdy_cnt+1;
+            end
+        end
     end
 
-    // PART OF CODE THAT ALWAYS READS RX AND PUTS DATA IN ASYNC BUFFER
 endmodule
 
+/**
+ISSUE: Trying to read from the buffer ONLY when the buffer is full.
+- When reading it seems like the first read goes perfect
+- The second full_in should assert 1 send period, when data gets written into the read-out buffer position 0 again
+    - The write pointer is supposed to stay at 1 in this case, and the read should be there too
+    - The full signal however only gets asserted after 3 bytes are written into it again
+    - And then for some reason the 5th byte gets sent???
+It does increment, the issue seems that
+    - The full asserts for 5 clock cycles
+    - The read_in asserts for 5 clock cycles as a consequence
+    - The read pointer increments 5 times
+    - After 5 increments
+But normally after a single read_in
+     - the read_pointer should decrease by 1
+     - the full should not be asserted anymore.
+So why is the full still asserted?
+    - Might be because the read pointer is only adapted a few clock cycles after read
+    - 1 extra clock cycle due to the syncing -> This should however not
+It however does seem like the read-pointer just randomly changes from 0 to 5.
+
+So how do we make the full de-assert? For asynchronous circuits that's probably impossible.
+Let's put about 5 clock-cycles in between each read, and see if that solves the issue
+*/
 
 /**
 We need 2 loops
 - the rx-loop that passes stuff to the async buffer byte by byte
-- the tx-loop that reads stuff from the async buffer byte by byte and sends it away 
-
+- the tx-loop that reads stuff from the async buffer byte by byte and sends it away
 */

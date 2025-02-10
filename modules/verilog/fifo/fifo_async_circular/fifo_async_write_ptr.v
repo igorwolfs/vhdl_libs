@@ -12,7 +12,7 @@ Read pointer
 
 module fifo_async_write_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
     (
-        input clk_in,
+        input write_clk,
         input nrst_in,
         input write_in,
         input [PTR_WIDTH-1:0] rptr_g_sync_in,
@@ -20,16 +20,9 @@ module fifo_async_write_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
         output reg full_out
     );
 
-    /*
-    reg [PTR_WIDTH-1:0] wptr_b_next;
-    reg [PTR_WIDTH-1:0] wptr_g_next;
-    reg wrap_around;
-    */
     // *** COMBINATORIAL LOGIC - NEXT STATE DETERMINATION
     wire [PTR_WIDTH-1:0] wptr_b_next;
     wire [PTR_WIDTH-1:0] wptr_g_next;
-    wire wrap_around;
-    wire wfull;
     wire [PTR_WIDTH-1:0] rptr_b_sync;
 
     gray2bin #(.N(PTR_WIDTH)) gray2bin_inst (.gray_in(rptr_g_sync_in), .bin_out(rptr_b_sync));
@@ -44,7 +37,7 @@ module fifo_async_write_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
     // Full if wrap around and read and write pointers are equal
     // assign wfull = wrap_around & (rptr_b_sync[PTR_WIDTH-2:0] == wptr_b_out[PTR_WIDTH-2:0]);
 
-    always @(posedge clk_in or negedge nrst_in)
+    always @(posedge write_clk)
     begin
         if (~nrst_in)
             begin

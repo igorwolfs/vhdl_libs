@@ -36,7 +36,7 @@ module uart
     parameter BAUD_RATE = 115_200,
     parameter DATA_BITS = 8)
     (
-        input   clk,
+        input   sysclk,
         input   nrst_in,
         // TX
         input   [(DATA_BITS-1):0] tx_data_in,
@@ -59,16 +59,16 @@ module uart
     baud_generator #(.BAUD_RATE(BAUD_RATE), .CLOCK_IN(CLOCK_FREQUENCY),
     .OVERSAMPLING_RATE(OVERSAMPLING_RATE)) baud_generator_inst
     (
-        .nrst_in(nrst_in), .clk_in(clk),
+        .nrst_in(nrst_in), .clk_in(sysclk),
         .divpulse_out(div_pulse), .baudpulse_out(baud_pulse)
     );
 
     uart_tx #(.OVERSAMPLING(OVERSAMPLING_RATE),
-    .DATA_BITS(DATA_BITS), .SYSCLK(CLOCK_FREQUENCY)) uart_tx_inst
+    .DATA_BITS(DATA_BITS)) uart_tx_inst
     (
         .nrst_in(nrst_in),
         .baudpulse_in(baud_pulse),
-        .sysclk_in(clk),
+        .sysclk_in(sysclk),
         .data_rdy_in(data_rdy_in),
         .tx_data_in(tx_data_in),
         .tx_serial_out(tx_serial_out),
@@ -77,9 +77,9 @@ module uart
     );
 
     uart_rx #(.OVERSAMPLING(OVERSAMPLING_RATE),
-                .DATA_BITS(DATA_BITS), .SYSCLK(CLOCK_FREQUENCY)) uart_rx_inst
+                .DATA_BITS(DATA_BITS)) uart_rx_inst
                 (.nrst_in(nrst_in),
-                .sysclk_in(clk),
+                .sysclk_in(sysclk),
                 .divpulse_in(div_pulse),
                 .rx_serial_in(rx_serial_in),
                 .data_rdy_out(data_rdy_out),

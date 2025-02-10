@@ -57,17 +57,15 @@ module uart_tx
   localparam SM_tx_stop_s  = 2'b11;
 
   reg [1:0] SM_tx_next_state;
-  reg [1:0] SM_DBG_CURR;
   reg [$clog2(DATA_BITS-1):0] data_bits_idx; // 3 bits -> max 8 states
   reg [DATA_BITS-1:0] data_bits; // 3 bits -> max 8 states
 
   // Purpose: Control TX state machine
   //! WARNING: errors here might happen due to asynchronous reset, consider removing the nrst_in to make sure the reset happens synchronously.
-  always @(posedge sysclk_in or negedge nrst_in)
+  always @(posedge sysclk_in)
   begin
     if (~nrst_in)
         begin      
-        tx_serial_out <= 1'b1;  // tx is 1 by default
         tx_done_out <= 1'b0;
         tx_busy_out <= 1'b0;
         SM_tx_next_state <= SM_idle_s;  // Set to  SM_idle_s
@@ -122,32 +120,32 @@ module uart_tx
 
   always @(posedge sysclk_in)
   begin
+    if (~nrst_in)
+        tx_serial_out <= 1'b1;  // tx is 1 by default
+    else
+    begin
     if (baudpulse_in)
       begin
       case (SM_tx_next_state)
         SM_idle_s :
           begin
-            SM_DBG_CURR <= SM_idle_s;
             tx_serial_out   <= 1'b1;         // Drive Line High for SM_idle_s
           end
 
         SM_tx_start_s :
           begin
-            SM_DBG_CURR <= SM_tx_start_s;
             tx_serial_out <= 1'b0;
             data_bits_idx <= 0;
           end
 
         SM_tx_data_s :
           begin
-            SM_DBG_CURR <= SM_tx_data_s;
             tx_serial_out <= data_bits[data_bits_idx];
             data_bits_idx <= data_bits_idx + 1;
           end
 
         SM_tx_stop_s :
             begin
-            SM_DBG_CURR <= SM_tx_stop_s;
             data_bits_idx <= 0;
             tx_serial_out <= 1'b1;
             end
@@ -158,6 +156,7 @@ module uart_tx
       endcase
       end
     else;
+  end
   end
 endmodule
 

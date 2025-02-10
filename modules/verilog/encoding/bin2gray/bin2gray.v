@@ -5,7 +5,7 @@ module gray2bin
     input [N-1:0] gray_in,
     output [N-1:0] bin_out
     );
-    
+
     genvar i;
     assign bin_out[N-1] = gray_in[N-1];
     generate
