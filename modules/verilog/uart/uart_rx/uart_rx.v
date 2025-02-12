@@ -39,7 +39,7 @@ module uart_rx
    );
 
    // CONSTANTS
-  localparam SM_rx_idle_s         = 2'b00;
+  localparam SM_rx_idle_s      = 2'b00;
   localparam SM_rx_start_s     = 2'b01;
   localparam SM_rx_data_s      = 2'b10;
   localparam SM_rx_stop_s      = 2'b11;
@@ -47,7 +47,6 @@ module uart_rx
   wire rx_serial_stable;
 
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
-  reg [$clog2(OVERSAMPLING-1):0] divpulse_cnt; //! WARNING: modified line here without testing
   reg [$clog2(DATA_BITS+2-1):0] data_bits_idx; // DATA_BITS + START STATE + STOP STATE
   reg [1:0] SM_rx_next_state;
 
@@ -61,19 +60,12 @@ module uart_rx
     if (~nrst_in)
       begin
       data_rdy_out <= 1'b0;
-      rx_data_out <= 0;
       SM_rx_next_state <= SM_rx_idle_s;
-      //! RESETTING THE BITSHIFT REGISTER
-      divpulse_cnt <= 0;
-      data_bits_idx <= 0;
       end
     else
       case (SM_rx_next_state)
         SM_rx_idle_s:
           begin
-          //! RESETTING THE BITSHIFT REGISTER
-          divpulse_cnt <= 0;
-          data_bits_idx <= 0;
 
           //! DATA READY OUT
           data_rdy_out <= 1'b0;
@@ -110,48 +102,70 @@ module uart_rx
       endcase
   end
 
+
+  reg [$clog2(OVERSAMPLING-1):0] divpulse_cnt; //! WARNING: modified line here without testing
+
   // Purpose: Control RX state machine
   always @(posedge sysclk_in)
   begin
-    if (divpulse_in) // If the divpulse is asserted
+    if (~nrst_in)
+    begin      
+      rx_data_out <= 0;
+      data_bits_idx <= 0;      
+      divpulse_cnt <= 0;
+    end
+    else
       begin
-      case (SM_rx_next_state)
-        SM_rx_start_s :
-          begin
-            if (divpulse_cnt == (OVERSAMPLING-1)/2) // Sample halfway the start-bit
+      if (divpulse_in) // If the divpulse is asserted
+        begin
+        case (SM_rx_next_state)
+          SM_rx_start_s :
             begin
-              divpulse_cnt <= 0;  // reset counter, found the middle
-              data_bits_idx <= data_bits_idx + 1;
+              if (divpulse_cnt == (OVERSAMPLING-1)/2) // Sample halfway the start-bit
+              begin
+                divpulse_cnt <= 0;  // reset counter, found the middle
+                data_bits_idx <= data_bits_idx + 1;
+              end
+              else
+                divpulse_cnt <= divpulse_cnt + 1;
             end
+          SM_rx_data_s :
+            begin
+            if (divpulse_cnt == OVERSAMPLING-1)
+              begin
+              rx_data_out[data_bits_idx-1] <= rx_serial_stable;
+              data_bits_idx <= data_bits_idx + 1;
+              divpulse_cnt <= 0;
+              end
+            else
+                divpulse_cnt <= divpulse_cnt + 1;
+            end
+          SM_rx_stop_s :
+            begin
+            if (divpulse_cnt == OVERSAMPLING-1)
+              begin
+              divpulse_cnt <= 0;
+              data_bits_idx <= data_bits_idx + 1;
+              end
             else
               divpulse_cnt <= divpulse_cnt + 1;
-          end
-        SM_rx_data_s :
-          begin
-          if (divpulse_cnt == OVERSAMPLING-1)
-            begin
-            rx_data_out[data_bits_idx-1] <= rx_serial_stable;
-            data_bits_idx <= data_bits_idx + 1;
-            divpulse_cnt <= 0;
             end
-          else
-              divpulse_cnt <= divpulse_cnt + 1;
-          end
-        SM_rx_stop_s :
+          default:
+          ;
+        endcase
+      end
+        else
           begin
-          if (divpulse_cnt == OVERSAMPLING-1)
-            begin
-            divpulse_cnt <= 0;
-            data_bits_idx <= data_bits_idx + 1;
-            end
-          else
-            divpulse_cnt <= divpulse_cnt + 1;
+            case (SM_rx_next_state)
+              SM_rx_idle_s:
+                begin
+                data_bits_idx <= 0;          
+                divpulse_cnt <= 0;
+                end
+              default:;
+            endcase;
           end
-        default:
-        ;
-    endcase
-  end
-  else;
+      end
 end
 
 endmodule

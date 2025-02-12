@@ -65,3 +65,10 @@ So let's use
 - the sysclk + divided clk for the other case
 
 Otherwise you would need 2 baud generators to operate rx and tx.
+
+### Setting the bit_idx to zero
+Issue: we use the data_bits_idx to signal the state to the primary uart_rx-module.
+However we need to set this value to 0.
+data_bits_idx <= 0;
+-> So perhaps the best way to actually do this is to move it into the "else"
+- So we add an extra else if divpulse isn't enabled, and set the data_bits_idx to 0 there when the state is idle and the divpulse isn't enabled
