@@ -11,7 +11,8 @@ module uart_tx_tb(
     input sysclk, // Clock
     output uart_tx_serial_out, // uart data tx output
     output uart_tx_busy_out, // uart tx active output
-    output uart_tx_done_out // uart tx done out
+    output nrst_led_out
+    //output uart_tx_done_out // uart tx done out
     //? <<< APP
 );
 
@@ -55,7 +56,6 @@ module uart_tx_tb(
     always #5 sysclk = ~sysclk;
     */
     //! <<< TEST
-
     baud_generator  #(.BAUD_RATE(BAUD_RATE), .CLOCK_IN(CLK_FREQ), .OVERSAMPLING_RATE(OVERSAMPLING_DIV)) baud_gen_inst (
         .baudpulse_out(baud_pulse), .divpulse_out(div_pulse), .clk_in(sysclk), .nrst_in(nrst_in));
 
@@ -113,6 +113,7 @@ module uart_tx_tb(
     //! <<< TEST SEQUENCE
 
     //? >>> APP SEQUENCE
+    assign nrst_led_out = nrst_in;
     localparam DEFAULT_SEND_RATE        = 750_000;
 
     // *** Registers
