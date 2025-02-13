@@ -27,7 +27,9 @@ module uart_echo_app (
 
     // TX
     output uart_tx_serial_out,
-    output led_out
+    output nrst_led_out,
+    output empty_led_out,
+    output full_led_out
 );
 
 // ? <<< PHYSICAL IMPL
@@ -92,7 +94,7 @@ module uart_echo_app (
     wire read_clk, write_clk;
     assign read_clk  = sysclk;
     assign write_clk = sysclk;
-    
+
     fifo_async_circular #(.DEPTH(DEPTH), .WIDTH(DATA_BITS))
     fifo_async_circular_inst
             (.read_clk(read_clk), .write_clk(write_clk),
@@ -158,8 +160,10 @@ module uart_echo_app (
         - Take data from the buffer
         - Write it to the fifo
     */
-    assign led_out = nrst_in;
-    
+    assign nrst_led_out = nrst_in;
+    assign empty_led_out = empty_out;
+    assign full_led_out = full_out;
+
     reg [$clog2(5):0] rdy_cnt; // COUNT TO ACCOUNT FOR DELAY IN SYNCING BETWEEN 2 CLOCKS FOR ASYNC FIFO, OTHERWISE FULL SIGNAL IS ASSERTED TOO LONG
     always @(posedge sysclk)
     begin
