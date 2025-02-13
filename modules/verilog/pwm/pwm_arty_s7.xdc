@@ -14,3 +14,9 @@ set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports {led[1]}]
 set_property -dict {PACKAGE_PIN E14 IOSTANDARD LVCMOS33} [get_ports {led[2]}]
 # LED1_R
 set_property -dict {PACKAGE_PIN E15 IOSTANDARD LVCMOS33} [get_ports {led[3]}]
+
+# ARRAY [1][2]
+set_property -dict { PACKAGE_PIN M14   IOSTANDARD LVCMOS33 } [get_ports { uart_rx_serial_in }]; #IO_L5P_T0_D06_14 Sch=ja_p[2]
+
+# NRST_IN
+set_property -dict { PACKAGE_PIN H14   IOSTANDARD LVCMOS33 } [get_ports { nrst_in }]; #IO_L20N_T3_A19_15 Sch=sw[0]

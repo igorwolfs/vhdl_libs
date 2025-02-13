@@ -26,7 +26,8 @@ module uart_echo_app (
     input uart_rx_serial_in,
 
     // TX
-    output uart_tx_serial_out
+    output uart_tx_serial_out,
+    output led_out
 );
 
 // ? <<< PHYSICAL IMPL
@@ -79,10 +80,11 @@ module uart_echo_app (
     uart #(.CLOCK_FREQUENCY(CLK_FREQUENCY), .BAUD_RATE(BAUD_RATE), .DATA_BITS(DATA_BITS))
     uart_inst (.sysclk(sysclk), .nrst_in(nrst_in),
     // TX
-    .data_rdy_in(data_rdy_in), .tx_data_in(tx_data_in),
-    .tx_serial_out(uart_tx_serial_out), .tx_done_out(tx_done_out), //! MUST BE A PIN
+    .tx_data_in(tx_data_in), .data_rdy_in(data_rdy_in),
+    .tx_done_out(tx_done_out), .tx_serial_out(uart_tx_serial_out), //! MUST BE A PIN
     // RX
-    .rx_serial_in(uart_rx_serial_in), .rx_data_out(rx_data_out), .data_rdy_out(data_rdy_out));
+    .rx_serial_in(uart_rx_serial_in), .rx_data_out(rx_data_out), 
+    .data_rdy_out(data_rdy_out));
 
     // Sync the buffer with the sysclk for now, assuming we don't really need the asynchronous features.
     //! ERROR: The signal that makes the uart out write to the buffer is asserted for too long of a time, shorten it.
@@ -156,6 +158,8 @@ module uart_echo_app (
         - Take data from the buffer
         - Write it to the fifo
     */
+    assign led_out = nrst_in;
+    
     reg [$clog2(5):0] rdy_cnt; // COUNT TO ACCOUNT FOR DELAY IN SYNCING BETWEEN 2 CLOCKS FOR ASYNC FIFO, OTHERWISE FULL SIGNAL IS ASSERTED TOO LONG
     always @(posedge sysclk)
     begin

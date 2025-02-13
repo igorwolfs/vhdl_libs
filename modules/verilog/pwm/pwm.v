@@ -2,18 +2,28 @@
 
 module pwm(
     input clk,
-    output [3:0] led // Change LED to bus of 4
+    input nrst_in,
+    output [3:0] led, // Change LED to bus of 4
+    output uart_rx_serial_in
     );
 
 // Create a counter that gets triggered on the positive edge of the clock
-reg [7:0] counter =0; // Counter 8-bits wide, reg: memory (e.g.: fliflop)
+reg [7:0] counter; // Counter 8-bits wide, reg: memory (e.g.: fliflop)
 always @(posedge clk) begin // Do at positive clock-edge
-    if (counter == 16'hFFFF) // Overflow detected
+    if (~nrst_in)
+    begin
         counter <= 0;
-    if (counter < 100) counter <= counter+1; // count until we get to 200
-    else 
-        counter <= 0; // reset counter to 0
+    end
+        else
+            begin
+        if (counter == 16'hFFFF) // Overflow detected
+            counter <= 0;
+        if (counter < 100) counter <= counter+1; // count until we get to 200
+        else 
+            counter <= 0; // reset counter to 0
+    end
 end
+
 
 // Create a 25 % duty cycle
 assign led[0] = (counter < 10) ? 1:0; // Assign led to 1 if counter value is less than 10
@@ -26,6 +36,9 @@ assign led[2] = (counter < 30) ? 1:0; // Assign led to 1 if counter value is les
 
 // Create a 70 % duty cycle
 assign led[3] = (counter < 40) ? 1:0; // Assign led to 1 if counter value is less than 50
+
+//! TESTING PIN
+assign uart_rx_serial_in = led[0];
 
 
 // Led should be on for 50 x 5 ns

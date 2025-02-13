@@ -3,9 +3,13 @@
 
 
 module top(
-    input btn0,
-    output led0
+    input switch_in,
+    output [3:0] led
 );
 
-assign led0 = btn0;
+assign led[3] = switch_in;
+assign led[2] = switch_in;
+assign led[1] = switch_in;
+assign led[0] = switch_in;
+
 endmodule

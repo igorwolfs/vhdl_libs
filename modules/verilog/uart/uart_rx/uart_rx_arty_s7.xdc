@@ -12,18 +12,14 @@ create_clock -period 10.000 -name sys_clk_pin -waveform {0.000 5.000} -add [get_
 
 
 ## BUSY
-# ARR[1][1]
-# set_property -dict { PACKAGE_PIN L18   IOSTANDARD LVCMOS33 } [get_ports { uart_data_rdy_out }]; #IO_L4N_T0_D05_14 Sch=ja_n[1]
+# BUTTON 0: HIGH (away from edge), LOW (towards edge)
+set_property -dict { PACKAGE_PIN H14   IOSTANDARD LVCMOS33 } [get_ports { nrst_in }]; #IO_L20N_T3_A19_15 Sch=sw[0]
 
+set_property -dict { PACKAGE_PIN E18   IOSTANDARD LVCMOS33 } [get_ports { led_out[0] }]; #IO_L16N_T2_A27_15 Sch=led[2]
+set_property -dict { PACKAGE_PIN F13   IOSTANDARD LVCMOS33 } [get_ports { led_out[1] }]; #IO_L17P_T2_A26_15 Sch=led[3]
+set_property -dict { PACKAGE_PIN E13   IOSTANDARD LVCMOS33 } [get_ports { led_out[2] }]; #IO_L17N_T2_A25_15 Sch=led[4]
+set_property -dict { PACKAGE_PIN H15   IOSTANDARD LVCMOS33 } [get_ports { led_out[3] }]; #IO_L18P_T2_A24_15 Sch=led[5]
 
-# LED0_R
-set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33} [get_ports {led_out[0]}]
-# LED0_G
-set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports {led_out[1]}]
-# LED0_B
-set_property -dict {PACKAGE_PIN E14 IOSTANDARD LVCMOS33} [get_ports {led_out[2]}]
-# LED1_R
-set_property -dict {PACKAGE_PIN E15 IOSTANDARD LVCMOS33} [get_ports {led_out[3]}]
 
 ## PMOD Header JA ARR[2][6]
 # ARR[1][2]

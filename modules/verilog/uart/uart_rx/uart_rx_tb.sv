@@ -18,10 +18,21 @@ module uart_rx_tb(
 
     // *******************************
     // BUTTONS
-    localparam LED_1_CHAR = 8'h61;
-    localparam LED_2_CHAR = 8'h62;
-    localparam LED_3_CHAR = 8'h63;
-    localparam LED_4_CHAR = 8'h64;
+    // UPPERCASE LETTERS
+    localparam LED_1_CHAR_L = 8'h41;
+    localparam LED_1_CHAR_U = 8'h5A;
+    
+    // LOWERCASE LETTERS
+    localparam LED_2_CHAR_L = 8'h61;
+    localparam LED_2_CHAR_U = 8'h7A;
+    
+    // NUMBERS
+    localparam LED_3_CHAR_L = 8'h30;
+    localparam LED_3_CHAR_U = 8'h39;
+    
+    // RANDOM SIGNS
+    localparam LED_4_CHAR_L = 8'h20;
+    localparam LED_4_CHAR_U = 8'h2F;
 
 
     // BITS
@@ -30,16 +41,13 @@ module uart_rx_tb(
     // *** Wires
     wire divpulse_out;
     wire [DATA_BITS-1:0] uart_rx_data_out;
-    reg uart_data_rdy_out;
+    wire uart_data_rdy_out;
 
     //! >>> SIMULATION
     /*
     // TESTS
     localparam N_TESTS = 16;
     reg [DATA_BITS-1:0] test_data;
-
-    // Wire
-    wire uart_data_rdy_out;
 
     // Registers
     reg sysclk = 0;
@@ -54,10 +62,10 @@ module uart_rx_tb(
         .baudpulse_out(baudpulse_out), .divpulse_out(divpulse_out), .clk_in(sysclk), .nrst_in(nrst_in));
 
 
-    uart_rx #(.OVERSAMPLING(OVERSAMPLING_DIV), .DATA_BITS(DATA_BITS), .SYSCLK(CLK_FREQ)) uart_rx_inst
+    uart_rx #(.OVERSAMPLING(OVERSAMPLING_DIV), .DATA_BITS(DATA_BITS)) uart_rx_inst
                 (.nrst_in(nrst_in), .sysclk_in(sysclk), .divpulse_in(divpulse_out),
-                .rx_serial_in(uart_rx_serial_in), .data_rdy_out(uart_data_rdy_out), .rx_data_out(uart_rx_data_out));
-
+                .rx_serial_in(uart_rx_serial_in), .data_rdy_out(uart_data_rdy_out),
+                .rx_data_out(uart_rx_data_out));
 
 
     //! >>> SIMULATION
@@ -93,31 +101,30 @@ module uart_rx_tb(
         end
         $finish;
     end
-    */
+       */
     //! >>> SIMULATION
-    reg [7:0] data_tmp;
     // ? >>> APP
+
     always @(posedge sysclk)
     begin
         if (~nrst_in)
             begin
                 led_out <= 4'b1111;
-                data_tmp <= 0;
             end
         else
             begin
                 if (uart_data_rdy_out)
                 begin
-                    case (uart_rx_data_out)
-                        LED_1_CHAR:
+                    if ((uart_rx_data_out >= LED_1_CHAR_L) && (uart_rx_data_out <= LED_1_CHAR_U))
                             led_out <= 4'b1000;
-                        LED_2_CHAR:
+                    else if ((uart_rx_data_out >= LED_2_CHAR_L) && (uart_rx_data_out <= LED_2_CHAR_U))
                             led_out <= 4'b0100;
-                        LED_3_CHAR:
+                    else if ((uart_rx_data_out >= LED_3_CHAR_L) && (uart_rx_data_out <= LED_3_CHAR_U))
                             led_out <= 4'b0010;
-                        LED_4_CHAR:
+                    else if ((uart_rx_data_out >= LED_4_CHAR_L) && (uart_rx_data_out <= LED_4_CHAR_U))
                             led_out <= 4'b0001;
-                    endcase
+                    else
+                        led_out <= 4'b1010;
                 end
                 else;
             end

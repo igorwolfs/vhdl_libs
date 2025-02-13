@@ -19,15 +19,18 @@ create_clock -period 10.000 -name sys_clk_pin -waveform {0.000 5.000} -add [get_
 
 
 ## PMOD Header JA ARR[2][6]
-# ARR[1][0]
-set_property -dict { PACKAGE_PIN L17   IOSTANDARD LVCMOS33 } [get_ports { nrst_in }]; #IO_L4P_T0_D04_14 Sch=ja_p[1]
-# ARR[1][1]
-# set_property -dict { PACKAGE_PIN L18   IOSTANDARD LVCMOS33 } [get_ports { uart_rx_serial_in }]; #IO_L4N_T0_D05_14 Sch=ja_n[1]
-# ARR[1][2]
-set_property -dict { PACKAGE_PIN M14   IOSTANDARD LVCMOS33 } [get_ports { uart_rx_serial_in }]; #IO_L5P_T0_D06_14 Sch=ja_p[2]
-# ARR[1][3] 
-set_property -dict { PACKAGE_PIN N14   IOSTANDARD LVCMOS33 } [get_ports { uart_tx_serial_out }]; #IO_L5N_T0_D07_14 Sch=ja_n[2]
+# BUTTON 0: HIGH (away from edge), LOW (towards edge)
+set_property -dict { PACKAGE_PIN H14   IOSTANDARD LVCMOS33 } [get_ports { nrst_in }]; #IO_L20N_T3_A19_15 Sch=sw[0]
 
+# LED 0
+set_property -dict { PACKAGE_PIN E18   IOSTANDARD LVCMOS33 } [get_ports { led_out }]; #IO_L16N_T2_A27_15 Sch=led[2]
+
+
+# * (pin 1: [1][0] -> pin 3 [1][3])
+# [1][0]
+set_property -dict { PACKAGE_PIN L17   IOSTANDARD LVCMOS33 } [get_ports { uart_tx_serial_out }]; #IO_L4P_T0_D04_14 Sch=ja_p[1]
+# [1] [1]
+set_property -dict { PACKAGE_PIN L18   IOSTANDARD LVCMOS33 } [get_ports { uart_rx_serial_in }]; #IO_L4N_T0_D05_14 Sch=ja_n[1]
 
 
 ##Configuration options, can be used for all designs

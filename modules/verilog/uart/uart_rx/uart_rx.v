@@ -38,7 +38,7 @@ module uart_rx
    output reg [DATA_BITS-1:0] rx_data_out // 8-bit output [MSB, LSB]
    );
 
-   // CONSTANTS
+  // CONSTANTS
   localparam SM_rx_idle_s      = 2'b00;
   localparam SM_rx_start_s     = 2'b01;
   localparam SM_rx_data_s      = 2'b10;
