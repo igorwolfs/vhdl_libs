@@ -1,7 +1,6 @@
 `timescale 1ns/10ps
 
-module gray2bin
-    #(parameter N=8) (
+module gray2bin #(parameter N=8) (
     input [N-1:0] gray_in,
     output [N-1:0] bin_out
     );
@@ -16,8 +15,7 @@ module gray2bin
     endgenerate
 endmodule
 
-module bin2gray
-    #(parameter N=8) (
+module bin2gray #(parameter N=8) (
     input [N-1:0] bin_in,
     output [N-1:0] gray_out
     );

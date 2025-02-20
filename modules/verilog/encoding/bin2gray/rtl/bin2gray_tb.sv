@@ -22,17 +22,16 @@ module bin2gray_tb();
 
     reg clk = 0;
 
-    always #5 clk = ~clk; // 10 ns clock
+    always #5 clk <= ~clk; // 10 ns clock
     assign g_data_in = g_data_out;
     
     initial
     begin
+        $dumpfile("vars.vcd");                // default "dump.vcd"
         for (integer test_idx=0; test_idx < N_TESTS; test_idx=test_idx+1)
-        begin
-            // Assume the initial values are binary
-            
+        begin            
             @(negedge clk)
-            b_data_in <= TESTS_IN[test_idx];
+            b_data_in = TESTS_IN[test_idx];
             // Convert them to gray with the module (done through assign)
             // Convert the gray back to binary with the module (into var b_data_out)
             // Check if the converted-back is consistent with the test module
@@ -40,6 +39,7 @@ module bin2gray_tb();
             if (b_data_out == TESTS_IN[test_idx]) $display("Test %d success!", test_idx);
             else $display("Test %d FAIL", test_idx);
         end
+        $dumpfile("vars.vcd");
     end
 
 endmodule

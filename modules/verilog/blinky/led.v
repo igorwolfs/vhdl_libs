@@ -2,7 +2,7 @@
 `timescale 1ns / 1ps
 
 
-module top(
+module led(
     input switch_in,
     output [3:0] led
 );
