@@ -41,10 +41,10 @@ module fifo_simple_tb ();
     //! WARNING: MAKE SURE TO ALWAYS PREDEFINE ALL YOUR REGISTERS NAMES
     // * clocks
     reg read_clk = 0;
-    always #(READ_CLK_PERIOD/2) read_clk = ~read_clk;
+    always #(READ_CLK_PERIOD/2) read_clk <= ~read_clk;
 
     reg write_clk = 0;
-    always #(WRITE_CLK_PERIOD/2) write_clk = ~write_clk;
+    always #(WRITE_CLK_PERIOD/2) write_clk <= ~write_clk;
 
     // *** DATA
     reg [WIDTH-1:0] data_write_in = 0;
