@@ -73,7 +73,7 @@ module fifo_simple_tb ();
         @(posedge write_clk);
         w_nrst_in = 1;
         repeat(10) @(posedge write_clk);
-        for (int i=0; i<N_TESTS*2; i++)
+        for (int i=0; i<N_TESTS; i++)
             begin
             data_write_in = TESTS_IN[i];
             write_in = 1;
@@ -91,17 +91,20 @@ module fifo_simple_tb ();
         write_in = 0;
 
         @(posedge read_clk);
-        for (int i=0; i<N_TESTS*2; i++)
+        for (int i=0; i<N_TESTS; i++)
             begin
-            read_in = 1;
             @(posedge read_clk);
             if (!empty_out)
                 begin
+                read_in = 1;
                 if (data_read_out == TESTS_IN[i]) $display("Read test OK %d", i);
                 else  $display("read Test FAIL %d", i);
                 end
             else
+                begin
+                read_in = 0;
                 $display("Buffer EMTPY! %d", i);
+                end
             end
     end
 
