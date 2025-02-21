@@ -28,7 +28,7 @@ module fifo_async_write_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
     gray2bin #(.N(PTR_WIDTH)) gray2bin_inst (.gray_in(rptr_g_sync_in), .bin_out(rptr_b_sync));
 
     // Increment if not full and write enabled
-    assign wptr_b_next = wptr_b_out + (write_in & !full_out);
+    assign wptr_b_next = wptr_b_out + {{{PTR_WIDTH-1}{1'b0}}, (write_in & !full_out)};
     // bin2gray
     assign wptr_g_next = (wptr_b_next >> 1) ^ wptr_b_next;
 

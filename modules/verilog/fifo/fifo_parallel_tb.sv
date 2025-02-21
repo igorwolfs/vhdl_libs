@@ -1,11 +1,12 @@
-module async_fifo_circular_parallel_tb;
+`timescale 1ns/10ps
+
+module fifo_parallel_tb();
 
     // *** DEPTH / WIDTH
     localparam DEPTH = 16; // Try
     localparam WIDTH = 8;
     localparam READ_CLK_PERIOD = 10;
     localparam WRITE_CLK_PERIOD = 20;
-
     // *** TESTS
     // Queue to push data_in
     reg [WIDTH-1:0] wdata_q[$], wdata;
@@ -18,6 +19,7 @@ module async_fifo_circular_parallel_tb;
     always #(WRITE_CLK_PERIOD/2) write_clk = ~write_clk;
 
     // *** DATA
+    reg [31:0] rand_in;
     reg [WIDTH-1:0] data_write_in = 0;
     reg w_nrst_in = 0, r_nrst_in = 0;
     wire [WIDTH-1:0] data_read_out;
@@ -47,7 +49,8 @@ module async_fifo_circular_parallel_tb;
         @(posedge write_clk iff !full_out);
         write_in = (i%2 == 0)? 1'b1 : 1'b0;
         if (write_in) begin
-            data_write_in = $urandom;
+            rand_in = $urandom;
+            data_write_in = rand_in[WIDTH-1:0];
           wdata_q.push_back(data_write_in);
         end
       end

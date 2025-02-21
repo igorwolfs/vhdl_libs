@@ -21,7 +21,6 @@ module fifo_async_read_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
     );
 
     // *** COMBINATORIAL LOGIC - NEXT STATE DETERMINATION
-    // reg [PTR_WIDTH-1:0] rptr_b_next;
     // reg [PTR_WIDTH-1:0] rptr_g_next;
     wire [PTR_WIDTH-1:0] rptr_b_next; // WARNING: in Verilog you can't drive registers, you can only drive wires. You can do that in systemverilog.
     wire [PTR_WIDTH-1:0] rptr_g_next;
@@ -29,12 +28,11 @@ module fifo_async_read_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
     wire rempty;
 
     gray2bin #(.N(PTR_WIDTH)) gray2bin_inst (.gray_in(wptr_g_sync_in), .bin_out(wptr_b_sync));
-    assign rptr_b_next = rptr_b_out + (read_in & !empty_out);
+    assign rptr_b_next = rptr_b_out + {{{PTR_WIDTH-1}{1'b0}}, (read_in & !empty_out)};
     assign rptr_g_next = (rptr_b_next >> 1) ^ rptr_b_next;
     assign rempty = (wptr_b_sync == rptr_b_next);
 
-    always @(posedge read_clk)
-    begin
+    always @(posedge read_clk) begin
         if (~nrst_in)
             begin
             rptr_b_out <= 0;
@@ -46,12 +44,11 @@ module fifo_async_read_ptr #(parameter WIDTH=8, parameter PTR_WIDTH=3)
             rptr_g_out <= rptr_g_next;
             end
     end
-    always @(posedge read_clk)
-    begin
+
+    always @(posedge read_clk) begin
         if (~nrst_in)
             empty_out <= 1;
         else
             empty_out <= rempty;
     end
-
 endmodule

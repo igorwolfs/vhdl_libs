@@ -23,7 +23,7 @@
 */
 
 
-module fifo_async_circular_tb ();
+module fifo_simple_tb ();
     // *** DEPTH / WIDTH
     localparam DEPTH = 16; // Try
     localparam WIDTH = 8;
@@ -67,16 +67,16 @@ module fifo_async_circular_tb ();
     initial
     begin
         @(posedge write_clk);
-        w_nrst_in <= 1;
+        w_nrst_in = 1;
         @(posedge write_clk);
-        w_nrst_in <= 0;
+        w_nrst_in = 0;
         @(posedge write_clk);
-        w_nrst_in <= 1;
+        w_nrst_in = 1;
         repeat(10) @(posedge write_clk);
         for (int i=0; i<N_TESTS*2; i++)
             begin
-            data_write_in <= TESTS_IN[i];
-            write_in <= 1;
+            data_write_in = TESTS_IN[i];
+            write_in = 1;
             @(posedge write_clk);
             if (!full_out)
                 begin
@@ -88,12 +88,12 @@ module fifo_async_circular_tb ();
             else
                 $display("BUFFER IS FULL %d", i);
             end
-        write_in <= 0;
+        write_in = 0;
 
         @(posedge read_clk);
         for (int i=0; i<N_TESTS*2; i++)
             begin
-            read_in <= 1;
+            read_in = 1;
             @(posedge read_clk);
             if (!empty_out)
                 begin
@@ -109,11 +109,11 @@ module fifo_async_circular_tb ();
     initial
     begin
         @(posedge read_clk);
-        r_nrst_in <= 1;
+        r_nrst_in = 1;
         @(posedge read_clk);
-        r_nrst_in <= 0;
+        r_nrst_in = 0;
         @(posedge read_clk);
-        r_nrst_in <= 1;
+        r_nrst_in = 1;
         @(posedge read_clk);
     end
 
