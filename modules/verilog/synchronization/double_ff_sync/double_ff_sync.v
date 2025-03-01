@@ -5,19 +5,19 @@ Make sure the NRESET_VALUE is set to 1 by default when dealing with for example 
 */
 module double_ff_sync #(parameter WIDTH=8, parameter NRST_VAL = 0)
         (
-            input clkin,
-            input nrst_in,
-            input [WIDTH-1:0] data_in,
-            output reg [WIDTH-1:0] data_out
+            input CLK,
+            input NRST,
+            input [WIDTH-1:0] D,
+            output reg [WIDTH-1:0] Q
         );
-        reg [WIDTH-1:0] data_tmp;
-        always @(posedge clkin) begin
-            if (~nrst_in)
+        reg [WIDTH-1:0] qi;
+        always @(posedge CLK) begin
+            if (~NRST)
                 begin
-                data_out <= NRST_VAL;
-                data_tmp <= NRST_VAL;
+                Q <= NRST_VAL;
+                qi <= NRST_VAL;
                 end
             else
-                {data_out, data_tmp} <= {data_tmp, data_in};
+                {Q, qi} <= {qi, D};
         end
 endmodule
