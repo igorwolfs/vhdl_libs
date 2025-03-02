@@ -13,7 +13,7 @@ READ / WRITE
 module fifo_memory #(parameter WIDTH = 8, parameter DEPTH = 16, parameter PTR_WIDTH = 3)
     (
         input WCLK, input W_EN,
-        input FULL, empty_in,
+        input FULL, EMPTY,
         input [PTR_WIDTH-1:0] R_PTR, W_PTR,
         input  [WIDTH-1:0] W_DI, // No need for a register because we are saving the signal into the buffer
         output [WIDTH-1:0] R_DO); //! Removed register in-between here.
