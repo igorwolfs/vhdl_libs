@@ -1,17 +1,17 @@
 #include <verilated.h>
 #include "verilated_vcd_c.h"
-#include "Vfifo_simple_tb.h"
+#include "Vuart_tb.h"
 
 int main(int argc, char **argv)
 {
     // Construct context object, design object, and trace object
     VerilatedContext *m_contextp = new VerilatedContext; // Context
     VerilatedVcdC *m_tracep = new VerilatedVcdC;         // Trace
-    Vfifo_simple_tb *m_duvp = new Vfifo_simple_tb;       // Design
+    Vuart_tb *m_duvp = new Vuart_tb;                 // Design
     // Trace configuration
     m_contextp->traceEverOn(true);     // Turn on trace switch in context
     m_duvp->trace(m_tracep, 3);        // Set depth to 3
-    m_tracep->open("sim.vcd"); // Open the VCD file to store data
+    m_tracep->open("uart.vcd"); // Open the VCD file to store data
     // Write data to the waveform file
     while (!m_contextp->gotFinish())
     {

@@ -28,10 +28,10 @@
 
 # Clock variety in UART
 Note that in UART, the system clock should be used to assert register signals like
- - data_rdy_in
- - tx_busy_out
- - tx_done_out
- - nrst_in
+ - TX_DRDY
+ - TX_BUSY
+ - TX_DONE
+ - NRST
 
  So that modules external to the uart module can use the same module to write / read data to the uart-peripheral.
 
@@ -50,19 +50,19 @@ So how can we then change the flags in one clock domain and transfer the data in
 
 ## Issues with adding only a baud clock in the RX-case
 CONTROLLED AS SYSCLOCK RATE:
-- The data_rdy_out should assert only a single sysclk cycle.
-- The nrst_in should assert only a single syclk cycle
+- The data_rdy_out should assert only a single CLK cycle.
+- The NRST should assert only a single syclk cycle
 
 1. When in idle -> sample in clk_cycles
 2. Once downward detected, wait half the baud rate cycle
 3. Then set the mode to data_read mode, here the wait should happen each baud_clk-cycle.
     - The issue however here is that the baud clock could have just asserted, so we'd miss out on another cycle for this bit
-    - or the baud cycle will still assert in 2 sysclk cycles which means there will be a negative bit erroneously sampled
+    - or the baud cycle will still assert in 2 CLK cycles which means there will be a negative bit erroneously sampled
     - In that sense the previous solution seems better? Or having some kind-of divided baud rate instead of the actual one.
 
 So let's use 
-- the divided clock + the sysclk for this case
-- the sysclk + divided clk for the other case
+- the divided clock + the CLK for this case
+- the CLK + divided clk for the other case
 
 Otherwise you would need 2 baud generators to operate rx and tx.
 

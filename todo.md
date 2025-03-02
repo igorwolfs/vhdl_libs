@@ -1,13 +1,10 @@
 # Todo
-# Testbench setup
-Setup a verilator testbench for 
-## FIFO TESTBENCH SETUP
+## AXI bus
+- Make the UART-peripheral-module AXI-compatible
 
-- The regular testbench is running
-    - HOWEVER: it doesn't seem to function 100 % correctly, there seem to be issues with the test itself
-- There seem to be lots of writes happening, the reads are not able to keep up with the writes because they happen too late.
-- Try to increase the buffer size.
-
+## Writing / Reading to RAM
+- Find a way to write / read instruction / Data memory to RAM without the use of a file
+	- e.g.: UART peripheral bootloader, debug interface, spi interface, ..
 
 ### Create a module that performs DFT 
 - Input: sinusoidal signal over UART / other protocol, using RX
@@ -15,3 +12,4 @@ Setup a verilator testbench for
 
 ## Get the xADC up and running
 ## Stream the data from the xADC to the serial device
+

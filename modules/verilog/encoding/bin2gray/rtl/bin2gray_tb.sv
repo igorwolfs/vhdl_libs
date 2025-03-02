@@ -17,8 +17,8 @@ module bin2gray_tb();
     wire [DATA_BITS-1:0] b_data_out;
 
     // * TEST
-    bin2gray #(.N(DATA_BITS)) bin2gray_inst (.bin_in(b_data_in), .gray_out(g_data_out));
-    gray2bin #(.N(DATA_BITS)) gray2bin_inst (.gray_in(g_data_in), .bin_out(b_data_out));
+    bin2gray #(.N(DATA_BITS)) bin2GIst (.BI(b_data_in), .GO(g_data_out));
+    gray2bin #(.N(DATA_BITS)) gray2BIst (.GI(g_data_in), .BO(b_data_out));
 
     reg clk = 0;
 
