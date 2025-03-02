@@ -94,7 +94,7 @@ module fifo_async_circular
     // MEMORY DECLARE
     fifo_memory #(.WIDTH(WIDTH), .DEPTH(DEPTH), .PTR_WIDTH(PTR_WIDTH)) fifo_memory_inst
     (.WCLK(WCLK), .W_EN(W_EN),
-    .FULL(FULL), .empty_in(EMPTY),
+    .FULL(FULL), .EMPTY(EMPTY),
     .R_PTR(rptr_b), .W_PTR(wptr_b),
     .W_DI(W_DI), .R_DO(R_DO));
 endmodule
