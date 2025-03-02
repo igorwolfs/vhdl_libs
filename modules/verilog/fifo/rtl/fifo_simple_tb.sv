@@ -64,7 +64,7 @@ module fifo_simple_tb ();
 
     // *** TEST BLOCKS
     // * WRITE BLOCK
-    always @(posedge NRST)
+    always @(posedge RNRST)
     begin
         repeat(10) @(posedge WCLK);
         for (int i=0; i<N_TESTS; i++)
@@ -107,12 +107,19 @@ module fifo_simple_tb ();
     initial
     begin
         @(posedge RCLK);
+        @(posedge WCLK);
+        WNRST = 1;
         RNRST = 1;
         @(posedge RCLK);
+        @(posedge WCLK);
+        WNRST = 1;
         RNRST = 0;
         @(posedge RCLK);
+        @(posedge WCLK);
+        WNRST = 1;
         RNRST = 1;
         @(posedge RCLK);
+        @(posedge WCLK);
     end
 
 endmodule
