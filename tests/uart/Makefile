@@ -1,17 +1,17 @@
 MODULES_DIR := ../../modules/verilog
-TOP_NAME := fifo_parallel_tb
-SRC_DIR := ${MODULES_DIR}/fifo/rtl
+TOP_NAME := uart_tb
+SRC_DIR := ${MODULES_DIR}/uart/rtl
 LIBS_DIR := $(MODULES_DIR)/encoding/bin2gray $(MODULES_DIR)/synchronization/double_ff_sync
 SRC_DIRS = ${SRC_DIR} ${LIBS_DIR}
 SRC_FILE := $(shell find $(SRC_DIRS) -name '*.vh') $(shell find $(SRC_DIRS) -name '*.svh') \
 			$(shell find $(SRC_DIRS) -name '*.v') $(shell find $(SRC_DIRS) -name '*.sv') \
 
-ifeq (${TOP_NAME}, fifo_parallel_tb)
-    CPP_FILE = sim_main_parallel.cpp
-else ifeq (${TOP_NAME}, fifo_simple_tb)
-    CPP_FILE = sim_main_simple.cpp
-else
-    CPP_FILE = INVALID_TOP_NAME
+ifeq (${TOP_NAME}, uart_tx_tb)
+    CPP_FILE = sim_main_uart_tx.cpp
+else ifeq (${TOP_NAME}, uart_rx_tb)
+    CPP_FILE = sim_main_uart_rx.cpp
+else ifeq (${TOP_NAME}, uart_tb)
+    CPP_FILE = sim_main_uart.cpp
 endif
 
 # Verilator options
@@ -21,6 +21,7 @@ VERILATOR_OPTS = -cc \
     -Wno-PINMISSING \
     -Wno-MODDUP \
     -Wno-UNOPTFLAT \
+    -Wno-WIDTHEXPAND \
     --exe \
     --trace \
     --trace-structs \

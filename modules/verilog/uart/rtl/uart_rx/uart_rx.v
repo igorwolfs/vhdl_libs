@@ -6,11 +6,11 @@
 PARAMETERS:
 - OVERSAMPLING RATE (There should be an extra counter here that is used for oversamplign the start bit)
 Inputs:
-- rx_serial_in
+- RX_DSER
 - Clock from baud generator
-- nrst_in (reset)
+- NRST (reset)
 Outputs:
-- rx_data_out (5-9 data-bist)
+- RX_DO (5-9 data-bist)
 - data_ready (1 bit) -> signalling that data is ready to be read
 
 # UART RX Working
@@ -30,96 +30,94 @@ Outputs:
 module uart_rx
   #(parameter OVERSAMPLING = 8, parameter DATA_BITS = 8) // Oversampling
   (
-   input            nrst_in,
-   input            sysclk_in,          // CURRENTLY UNUSED
-   input            divpulse_in,
-   input            rx_serial_in,
-   output reg       data_rdy_out,         // reg: single-bit output
-   output reg [DATA_BITS-1:0] rx_data_out // 8-bit output [MSB, LSB]
+   input            NRST,
+   input            CLK,          // CURRENTLY UNUSED
+   input            DIVPULSE,
+   input            RX_DSER,
+   output reg       RX_DRDY,        // reg: single-bit output
+   output reg [DATA_BITS-1:0] RX_DO // 8-bit output [MSB, LSB]
    );
 
   // CONSTANTS
-  localparam SM_rx_idle_s      = 2'b00;
-  localparam SM_rx_start_s     = 2'b01;
-  localparam SM_rx_data_s      = 2'b10;
-  localparam SM_rx_stop_s      = 2'b11;
+  localparam S_IDLE      = 2'b00;
+  localparam S_START     = 2'b01;
+  localparam S_DATA      = 2'b10;
+  localparam S_STOP      = 2'b11;
 
   wire rx_serial_stable;
 
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
   reg [$clog2(DATA_BITS+2-1):0] data_bits_idx; // DATA_BITS + START STATE + STOP STATE
-  reg [1:0] SM_rx_next_state;
+  reg [1:0] S_next;
 
   // double flipflop
   double_ff_sync #(.WIDTH(1), .NRST_VAL(1)) ff_sync
-  (.nrst_in(nrst_in), .clkin(sysclk_in),
-    .data_in(rx_serial_in), .data_out(rx_serial_stable));
+  (.NRST(NRST), .CLK(CLK),
+    .D(RX_DSER), .Q(rx_serial_stable));
 
-  always @(posedge sysclk_in)
+  always @(posedge CLK)
   begin
-    if (~nrst_in)
+    if (~NRST)
       begin
-      data_rdy_out <= 1'b0;
-      SM_rx_next_state <= SM_rx_idle_s;
+      RX_DRDY <= 1'b0;
+      S_next <= S_IDLE;
       end
     else
-      case (SM_rx_next_state)
-        SM_rx_idle_s:
+      case (S_next)
+      S_IDLE:
           begin
-
-          //! DATA READY OUT
-          data_rdy_out <= 1'b0;
+          RX_DRDY <= 1'b0;
           if (rx_serial_stable == 1'b0) // If 1 is registered -> set state machine in start mode, start sampling at center
-            SM_rx_next_state <= SM_rx_start_s;
+            S_next <= S_START;
           else
-            SM_rx_next_state <= SM_rx_idle_s;
+            S_next <= S_IDLE;
           end
-        SM_rx_start_s:
+        S_START:
           begin
           if (data_bits_idx == 1)
-            SM_rx_next_state <= SM_rx_data_s;
+            S_next <= S_DATA;
           else
-            SM_rx_next_state <= SM_rx_start_s;
+            S_next <= S_START;
           end
-        SM_rx_data_s:
+        S_DATA:
           begin
           if ((data_bits_idx == DATA_BITS+1) && (rx_serial_stable == 1'b1))
-            SM_rx_next_state <= SM_rx_stop_s;
+            S_next <= S_STOP;
           else
-            SM_rx_next_state <= SM_rx_data_s;
+            S_next <= S_DATA;
           end
-        SM_rx_stop_s:
+        S_STOP:
           begin
             // Wait for the stop bit to be registered in the shift register
             if (data_bits_idx == DATA_BITS+2)
               begin
-              data_rdy_out <= 1'b1;
-              SM_rx_next_state <= SM_rx_idle_s;
+              RX_DRDY <= 1'b1;
+              S_next <= S_IDLE;
               end
             end
          default:
-           SM_rx_next_state <= SM_rx_idle_s;
+           S_next <= S_IDLE;
       endcase
   end
 
 
-  reg [$clog2(OVERSAMPLING-1):0] divpulse_cnt; //! WARNING: modified line here without testing
+  reg [$clog2(OVERSAMPLING-1):0] divpulse_cnt;
 
   // Purpose: Control RX state machine
-  always @(posedge sysclk_in)
+  always @(posedge CLK)
   begin
-    if (~nrst_in)
+    if (~NRST)
     begin      
-      rx_data_out <= 0;
+      RX_DO <= 0;
       data_bits_idx <= 0;      
       divpulse_cnt <= 0;
     end
     else
       begin
-      if (divpulse_in) // If the divpulse is asserted
+      if (DIVPULSE) // If the divpulse is asserted
         begin
-        case (SM_rx_next_state)
-          SM_rx_start_s :
+        case (S_next)
+          S_START :
             begin
               if (divpulse_cnt == (OVERSAMPLING-1)/2) // Sample halfway the start-bit
               begin
@@ -129,18 +127,18 @@ module uart_rx
               else
                 divpulse_cnt <= divpulse_cnt + 1;
             end
-          SM_rx_data_s :
+          S_DATA :
             begin
             if (divpulse_cnt == OVERSAMPLING-1)
               begin
-              rx_data_out[data_bits_idx-1] <= rx_serial_stable;
+              RX_DO[data_bits_idx-1] <= rx_serial_stable;
               data_bits_idx <= data_bits_idx + 1;
               divpulse_cnt <= 0;
               end
             else
                 divpulse_cnt <= divpulse_cnt + 1;
             end
-          SM_rx_stop_s :
+          S_STOP :
             begin
             if (divpulse_cnt == OVERSAMPLING-1)
               begin
@@ -156,8 +154,8 @@ module uart_rx
       end
         else
           begin
-            case (SM_rx_next_state)
-              SM_rx_idle_s:
+            case (S_next)
+              S_IDLE:
                 begin
                 data_bits_idx <= 0;          
                 divpulse_cnt <= 0;

@@ -12,10 +12,10 @@ Parameters:
 - DATA_BITS (desired number of data bits)
 ## Inputs:
 TX and RX
-- nrst_in (for resetting tx and rx)
+- NRST (for resetting tx and rx)
 - clk (clock)
 TX
-- tx_data_in (8-bits tx bus)
+- TX_DI (8-bits tx bus)
 - tx_rdy_in (gives a clk signal when data is ready and should be sent)
 RX
 - rx_serial_in (should be linked to RX pin)
@@ -23,7 +23,7 @@ RX
 ## Outputs:
 TX
 - tx_busy (could be ignored for now)
-- tx_done_out (shows that data is done sending)
+- TX_DONE (shows that data is done sending)
 - tx_data_out (should be linked to output pin)
 RX
 - rx_data_out (data_bits-length)
@@ -36,18 +36,18 @@ module uart
     parameter BAUD_RATE = 115_200,
     parameter DATA_BITS = 8)
     (
-        input   sysclk,
-        input   nrst_in,
+        input   CLK,
+        input   NRST,
         // TX
-        input   [(DATA_BITS-1):0] tx_data_in,
-        input   data_rdy_in,
-        output  tx_busy_out,
-        output  tx_done_out,
-        output  tx_serial_out, //! TX_PIN
+        input   [(DATA_BITS-1):0] TX_DI,
+        input   TX_DRDY,
+        output  TX_BUSY,
+        output  TX_DONE,
+        output  TX_DSER,      //! TX_PIN
         // RX
-        input   rx_serial_in,   //! RX_PIN
-        output  [(DATA_BITS-1):0] rx_data_out,
-        output  data_rdy_out
+        input   RX_DSER, //! RX_PIN
+        output  [(DATA_BITS-1):0] RX_DO,
+        output  RX_DRDY
     );
 
     // CONSTANTS
@@ -59,30 +59,30 @@ module uart
     baud_generator #(.BAUD_RATE(BAUD_RATE), .CLOCK_IN(CLOCK_FREQUENCY),
     .OVERSAMPLING_RATE(OVERSAMPLING_RATE)) baud_generator_inst
     (
-        .nrst_in(nrst_in), .clk_in(sysclk),
-        .divpulse_out(div_pulse), .baudpulse_out(baud_pulse)
+        .NRST(NRST), .CLK(CLK),
+        .DIVPULSE(div_pulse), .BAUDPULSE(baud_pulse)
     );
 
     uart_tx #(.OVERSAMPLING(OVERSAMPLING_RATE),
     .DATA_BITS(DATA_BITS)) uart_tx_inst
     (
-        .nrst_in(nrst_in),
-        .baudpulse_in(baud_pulse),
-        .sysclk_in(sysclk),
-        .data_rdy_in(data_rdy_in),
-        .tx_data_in(tx_data_in),
-        .tx_serial_out(tx_serial_out),
-        .tx_busy_out(tx_busy_out),
-        .tx_done_out(tx_done_out)
+        .NRST(NRST),
+        .BAUDPULSE(baud_pulse),
+        .CLK(CLK),
+        .TX_DRDY(TX_DRDY),
+        .TX_DI(TX_DI),
+        .TX_DSER(TX_DSER),
+        .TX_BUSY(TX_BUSY),
+        .TX_DONE(TX_DONE)
     );
 
     uart_rx #(.OVERSAMPLING(OVERSAMPLING_RATE),
                 .DATA_BITS(DATA_BITS)) uart_rx_inst
-                (.nrst_in(nrst_in),
-                .sysclk_in(sysclk),
-                .divpulse_in(div_pulse),
-                .rx_serial_in(rx_serial_in),
-                .data_rdy_out(data_rdy_out),
-                .rx_data_out(rx_data_out)
+                (.NRST(NRST),
+                .CLK(CLK),
+                .DIVPULSE(div_pulse),
+                .RX_DSER(RX_DSER),
+                .RX_DRDY(RX_DRDY),
+                .RX_DO(RX_DO)
     );
 endmodule

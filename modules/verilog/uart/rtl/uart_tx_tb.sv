@@ -1,19 +1,22 @@
 `timescale 1ns/10ps
 
-
+// `define UART_APP
+`define UART_SIM
 
 //! WARNING: LAST TEST ISN'T BEING RUN
 
 module uart_tx_tb(
+    `ifndef UART_SIM
     //? >>> APP
-    input nrst_in, // Reset input
-    input [3:0] button_in, // Button input
-    input sysclk, // Clock
-    output uart_tx_serial_out, // uart data tx output
-    output uart_tx_busy_out, // uart tx active output
-    output nrst_led_out
-    //output uart_tx_done_out // uart tx done out
+    input NRST, // Reset input
+    input [3:0] BUTTON_I, // Button input
+    input CLK, // Clock
+    output TX_DSER, // uart data tx output
+    output TX_BUSY, // uart tx active output
+    output NRST_LED_O
+    //output uart_TX_DONE // uart tx done out
     //? <<< APP
+    `endif /* UART_APP */
 );
 
 
@@ -28,92 +31,99 @@ module uart_tx_tb(
 
 
     // REGISTERS
-    reg [DATA_BITS-1:0] tx_data_next;
-    reg data_rdy_in = 1'b0;
+    reg [DATA_BITS-1:0] tx_dnext;
+    reg TX_DRDY = 1'b0;
 
     // WIRES
     wire div_pulse, baud_pulse;
 
     //! >>> TEST
-    /*
+    `ifdef UART_SIM
     // CONSTANTS + ARRAYS
     localparam N_TESTS = 16;
     reg [DATA_BITS-1:0] wdata_q[$];
     localparam BAUD_RATE_TICKS = (1_000_000_000 / BAUD_RATE);
 
     // REGISTERS
-    reg nrst_in = 1'b1;
+    reg NRST = 1'b1;
     reg [DATA_BITS-1:0] tx_data_prev = 0;
     reg [DATA_BITS-1:0] tx_data_received = 0; // Holds received value
     reg toggle = 0;
-
+    reg [31:0] tx32_dnext;
     // WIRES
-    wire uart_tx_serial_out, uart_tx_busy_out;
-    wire uart_tx_done_out;
+    wire TX_DSER, TX_BUSY;
+    wire uart_TX_DONE;
 
     // CLOCK
-    reg sysclk = 1'b0;
-    always #5 sysclk = ~sysclk;
-    */
+    reg CLK = 1'b0;
+    always #5 CLK = ~CLK;
+
+    `endif
     //! <<< TEST
     baud_generator  #(.BAUD_RATE(BAUD_RATE), .CLOCK_IN(CLK_FREQ), .OVERSAMPLING_RATE(OVERSAMPLING_DIV)) baud_gen_inst (
-        .baudpulse_out(baud_pulse), .divpulse_out(div_pulse), .clk_in(sysclk), .nrst_in(nrst_in));
+        .BAUDPULSE(baud_pulse), .DIVPULSE(div_pulse), .CLK(CLK), .NRST(NRST));
 
     uart_tx #(.OVERSAMPLING(OVERSAMPLING_DIV),
     .DATA_BITS(DATA_BITS)) uart_tx_inst
     (
-     .nrst_in(nrst_in), .baudpulse_in(baud_pulse), .sysclk_in(sysclk),
-     .data_rdy_in(data_rdy_in),
-     .tx_data_in(tx_data_next), 
-     .tx_serial_out(uart_tx_serial_out),
-     .tx_done_out(uart_tx_done_out),
-     .tx_busy_out(uart_tx_busy_out)
+     .NRST(NRST), .BAUDPULSE(baud_pulse), .CLK(CLK),
+     .TX_DRDY(TX_DRDY),
+     .TX_DI(tx_dnext),
+     .TX_DSER(TX_DSER),
+     .TX_DONE(uart_TX_DONE),
+     .TX_BUSY(TX_BUSY)
     );
+    initial begin
+        NRST = 1;
+        @(posedge CLK);
+        NRST = 0;
+        @(posedge CLK);
+        NRST = 1;
+        @(posedge CLK);
+    end
 
     //! >>> TEST SEQUENCE
-    /*
-    initial
+    `ifdef UART_SIM
+    always @(negedge NRST)
         begin
-            @(posedge sysclk);
-            nrst_in <= 1;
-            @(posedge sysclk);
-            nrst_in <= 0;
-            @(posedge sysclk);
-            nrst_in <= 1;
-            @(posedge sysclk);
+            repeat(3) @(posedge CLK);
             @(posedge baud_pulse);
             // Continuous transmit
-            tx_data_next = $urandom;
+            tx32_dnext = $urandom;
+            tx_dnext = tx32_dnext[7:0]; // Put new data on start bit
             for (integer test_idx=0; test_idx<=N_TESTS-1; test_idx = test_idx + 1)
             begin
-                data_rdy_in <= 1'b1;
-                @(negedge uart_tx_serial_out);
-                // data_rdy_in <= 1'b0;
+                TX_DRDY <= 1'b1;
+                @(negedge TX_DSER);
+                // TX_DRDY <= 1'b0;
                 // Save this data for comparison.
-                tx_data_prev <= tx_data_next;
-                tx_data_next <= $urandom; // Put new data on start bit
+                tx_data_prev <= tx_dnext;
+                tx32_dnext = $urandom;
+                tx_dnext = tx32_dnext[7:0]; // Put new data on start bit
                 #(BAUD_RATE_TICKS/2)
                 // Sample the data bits
                 for (integer bit_idx = 0; bit_idx <= DATA_BITS-1; bit_idx = bit_idx+1)
                     begin
                     #BAUD_RATE_TICKS;
-                    tx_data_received[bit_idx] <= tx_serial_out;
+                    tx_data_received[bit_idx] <= TX_DSER;
                     toggle = ~toggle;
                     end
                 // Wait until the data ready is triggered
-                @(negedge uart_tx_done_out);
+                @(negedge uart_TX_DONE);
                 if (tx_data_received == tx_data_prev) $display("Test %d success!", test_idx+1);
                 else $display("Test %d FAIL", test_idx);
             end
 
-            data_rdy_in <= 1'b0;
+            TX_DRDY = 1'b0;
             $finish;
         end
-    */
+    `endif
     //! <<< TEST SEQUENCE
 
     //? >>> APP SEQUENCE
-    assign nrst_led_out = nrst_in;
+    `ifndef UART_SIM
+
+    assign NRST_LED_O = NRST;
     localparam DEFAULT_SEND_RATE        = 750_000;
 
     // *** Registers
@@ -136,12 +146,11 @@ module uart_tx_tb(
     localparam BUTTON_DEFAULT_CHAR = 8'h2E;
 
     /*
-    // Should divide the clock by CLOCK_PERIOD_NS
+    Should divide the clock by CLOCK_PERIOD_NS
     NOTE: Inputs should be driven only by a single signal.
     Which is why we wrote the reset signal in both always-blocks.
-    **/
 
-    /*
+
     1. A button press happens
     2. A message needs to be written to the tx buffer according to the button press
     3. The message needs to be sent
@@ -151,38 +160,38 @@ module uart_tx_tb(
                 - If button: fill, wait clock cycle, continue to sending
     */
 
-    always @(posedge sysclk) begin
-        if (~nrst_in)
+    always @(posedge CLK) begin
+        if (~NRST)
             begin
-            data_rdy_in <= 1'b0;
+            TX_DRDY <= 1'b0;
             count_default_send_reg <= 0;
             end
 
-        else if (uart_tx_busy_out == 0) begin
-            case (button_in)
+        else if (TX_BUSY == 0) begin
+            case (BUTTON_I)
                 BUTTON_1:
                         begin
                         count_default_send_reg <= 0;
-                        tx_data_next <= BUTTON_1_CHAR; //8'h97;
-                        data_rdy_in   <= 1'b1; // Indicate start send
+                        tx_dnext <= BUTTON_1_CHAR; //8'h97;
+                        TX_DRDY   <= 1'b1; // Indicate start send
                         end
                 BUTTON_2:
                         begin
                         count_default_send_reg <= 0;
-                        tx_data_next <= BUTTON_2_CHAR;
-                        data_rdy_in   <= 1'b1; // Indicate start send
+                        tx_dnext <= BUTTON_2_CHAR;
+                        TX_DRDY   <= 1'b1; // Indicate start send
                         end
                 BUTTON_3:
                         begin
                         count_default_send_reg <= 0;
-                        tx_data_next <= BUTTON_3_CHAR;
-                        data_rdy_in   <= 1'b1; // Indicate start send
+                        tx_dnext <= BUTTON_3_CHAR;
+                        TX_DRDY   <= 1'b1; // Indicate start send
                         end
                 BUTTON_4:
                         begin
                         count_default_send_reg <= 0;
-                        tx_data_next <= BUTTON_4_CHAR;
-                        data_rdy_in   <= 1'b1; // Indicate start send
+                        tx_dnext <= BUTTON_4_CHAR;
+                        TX_DRDY   <= 1'b1; // Indicate start send
                         end
                 // COUNT for 3 seconds and send a random message if nothing was sent in the meantime
                 default:
@@ -194,21 +203,21 @@ module uart_tx_tb(
                         else
                             begin
                             count_default_send_reg <= 0;
-                            tx_data_next <= BUTTON_DEFAULT_CHAR; // Send dot
-                            data_rdy_in   <= 1'b1; // Indicate start send
+                            tx_dnext <= BUTTON_DEFAULT_CHAR; // Send dot
+                            TX_DRDY   <= 1'b1; // Indicate start send
                             end
                         end
             endcase
         end
         // Future: make sure to end this only when the TX-done signal was raised
         else begin
-            if (data_rdy_in == 1'b1)
+            if (TX_DRDY == 1'b1)
             begin
-                data_rdy_in <= 1'b0;
+                TX_DRDY <= 1'b0;
             end
         end
     end
-
+    `endif
     //? <<< APP SEQUENCE
 
 endmodule

@@ -1,12 +1,16 @@
 `timescale 1ns/10ps
 
+// `define UART_APP
+`define UART_SIM
 
 module uart_rx_tb(
     //? >>> APP
-    input nrst_in,
-    input sysclk,
-    input uart_rx_serial_in,
-    output reg [3:0] led_out
+`ifndef UART_SIM
+    input NRST,
+    input CLK,
+    input RX_DSER,
+    output reg [3:0] LED_O
+`endif
     //? <<< APP
 );
 
@@ -39,61 +43,63 @@ module uart_rx_tb(
     localparam DATA_BITS = 8;
 
     // *** Wires
-    wire divpulse_out;
+    wire DIVPULSE;
     wire [DATA_BITS-1:0] uart_rx_data_out;
     wire uart_data_rdy_out;
 
     //! >>> SIMULATION
-    /*
+    `ifdef UART_SIM
     // TESTS
     localparam N_TESTS = 16;
     reg [DATA_BITS-1:0] test_data;
 
     // Registers
-    reg sysclk = 0;
-    reg nrst_in = 1;
-    reg uart_rx_serial_in = 1;
+    reg CLK = 1'b0;
+    reg NRST = 1'b1;
+    reg RX_DSER = 1;
 
-    always #5 sysclk = ~sysclk;
-    */
+    always #5 CLK = ~CLK;
+    `endif
     //! <<< SIMULATION
 
     baud_generator  #(.BAUD_RATE(BAUD_RATE), .CLOCK_IN(CLK_FREQ), .OVERSAMPLING_RATE(OVERSAMPLING_DIV)) baud_gen_inst (
-        .baudpulse_out(baudpulse_out), .divpulse_out(divpulse_out), .clk_in(sysclk), .nrst_in(nrst_in));
+        .BAUDPULSE(BAUDPULSE), .DIVPULSE(DIVPULSE), .CLK(CLK), .NRST(NRST));
 
 
     uart_rx #(.OVERSAMPLING(OVERSAMPLING_DIV), .DATA_BITS(DATA_BITS)) uart_rx_inst
-                (.nrst_in(nrst_in), .sysclk_in(sysclk), .divpulse_in(divpulse_out),
-                .rx_serial_in(uart_rx_serial_in), .data_rdy_out(uart_data_rdy_out),
-                .rx_data_out(uart_rx_data_out));
+                (.NRST(NRST), .CLK(CLK), .DIVPULSE(DIVPULSE),
+                .RX_DSER(RX_DSER), .RX_DRDY(uart_data_rdy_out),
+                .RX_DO(uart_rx_data_out));
 
 
     //! >>> SIMULATION
-    /*
-    initial
-    begin
-        @(posedge sysclk);
-        nrst_in <= 1;
-        @(posedge sysclk);
-        nrst_in <= 0;
-        @(posedge sysclk);
-        nrst_in <= 1;
-        @(posedge sysclk)
+    `ifdef UART_SIM
+    initial begin
+        NRST <= 1;
+        @(posedge CLK);
+        NRST <= 0;
+        @(posedge CLK);
+        NRST <= 1;
+        @(posedge CLK);
+    end
+
+    always @(posedge NRST) begin
+        repeat(3) @(posedge CLK);
         // **** TEST 1 ****
         for (int test_idx=0; test_idx<N_TESTS; test_idx = test_idx + 1)
             begin
-            @(posedge baudpulse_out);
+            @(posedge BAUDPULSE);
             test_data <= $urandom;
             // Send start bit
-            uart_rx_serial_in <= 0;
-            @(posedge baudpulse_out);
+            RX_DSER <= 0;
+            @(posedge BAUDPULSE);
             // Send data bits
             for (integer i=0; i < DATA_BITS; i=i+1) begin
-                uart_rx_serial_in <= test_data[i];
-                @(posedge baudpulse_out);
+                RX_DSER <= test_data[i];
+                @(posedge BAUDPULSE);
             end
             // Send stop bit
-            uart_rx_serial_in <= 1'b1;
+            RX_DSER <= 1'b1;
             @(posedge uart_data_rdy_out)
             if (uart_rx_data_out == test_data) $display("Test %d success!", test_idx);
             else $display("Test %d FAIL", test_idx);
@@ -101,34 +107,31 @@ module uart_rx_tb(
         end
         $finish;
     end
-       */
-    //! >>> SIMULATION
-    // ? >>> APP
-
-    always @(posedge sysclk)
+    `else
+    always @(posedge CLK)
     begin
-        if (~nrst_in)
+        if (~NRST)
             begin
-                led_out <= 4'b1111;
+                LED_O <= 4'b1111;
             end
         else
             begin
                 if (uart_data_rdy_out)
                 begin
                     if ((uart_rx_data_out >= LED_1_CHAR_L) && (uart_rx_data_out <= LED_1_CHAR_U))
-                            led_out <= 4'b1000;
+                            LED_O <= 4'b1000;
                     else if ((uart_rx_data_out >= LED_2_CHAR_L) && (uart_rx_data_out <= LED_2_CHAR_U))
-                            led_out <= 4'b0100;
+                            LED_O <= 4'b0100;
                     else if ((uart_rx_data_out >= LED_3_CHAR_L) && (uart_rx_data_out <= LED_3_CHAR_U))
-                            led_out <= 4'b0010;
+                            LED_O <= 4'b0010;
                     else if ((uart_rx_data_out >= LED_4_CHAR_L) && (uart_rx_data_out <= LED_4_CHAR_U))
-                            led_out <= 4'b0001;
+                            LED_O <= 4'b0001;
                     else
-                        led_out <= 4'b1010;
+                        LED_O <= 4'b1010;
                 end
                 else;
             end
     end
-        // ? <<< APP
+    `endif
 
 endmodule

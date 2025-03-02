@@ -1,12 +1,12 @@
 ## Issue 1
-- For some reason the full_out becomes blank after a reset.
+- For some reason the FULL becomes blank after a reset.
 - This is probably because wfull is blank after one clock cycle
 - This is probably because (one or more) are undefined after the first 2 clock-cycles
     - wrap_around (depends on the next 2 variables too)
-    - rptr_b_sync -> comes from rptr_g_sync_in
+    - rptr_b_sync -> comes from RPTR_G_SYNC
         - we need at least 2 clock cycles to pass on the wptr signal through the flipflop from the reset
         - However the flip-flop should be reset with the read and write reset signal
-    - wptr_b_out -> defined after reset
+    - WPTR_B -> defined after reset
 
 ### Possible solution:
 - Reset
@@ -16,8 +16,8 @@
 => I forgot to assign the register values before starting the simulation.
 
 ## Issue 2
-- For some reason the full_out goes uncertain when the r_nrst_in is low.
-- It also goes uncertain the read_clk edge after the first r_nrst_in
+- For some reason the FULL goes uncertain when the RNRST is low.
+- It also goes uncertain the RCLK edge after the first RNRST
 
 Again probably has something to do with the reset itself.
 ### Solution
@@ -25,22 +25,22 @@ I messed up the clock signals in the test-bench
 
 ## Issue 3
 
-If we keep the write_in high, and simply switch the data we write in:
+If we keep the W_EN high, and simply switch the data we write in:
 ```verilog
 begin
-data_write_in <= TESTS_IN[i];
-write_in <= 1;
-@(posedge write_clk);
+W_DI <= TESTS_IN[i];
+W_EN <= 1;
+@(posedge WCLK);
 end
 ```
 Eventually some data will be written to buffer position 0.
 ```verilog
 begin
-data_write_in <= TESTS_IN[i];
-write_in <= 1;
-@(posedge write_clk);
-write_in <= 0;
-@(posedge write_clk);
+W_DI <= TESTS_IN[i];
+W_EN <= 1;
+@(posedge WCLK);
+W_EN <= 0;
+@(posedge WCLK);
 end
 ```
 This solves the problem.
@@ -103,17 +103,17 @@ The read-signal asserts too late. The read-signal should assert if the read poin
 We indeed have the issue now that the an additional read happens due to the is_empty not being asserted on time.
 
 Changing the dynamic here to an in-loop change doesn't change the situation however, since it was already combinatorial
-- (wptr_b_sync == rptr_b_next) was assigned combinatorially, and was assigned to empty_out every clock cycle.
+- (wptr_b_sync == rptr_b_next) was assigned combinatorially, and was assigned to EMPTY every clock cycle.
 We do need something combinatorial here.
 
 
 ### Answer 
-The issue is probably that empty_out has a recursive definition with an undefined state. And it does indeed
+The issue is probably that EMPTY has a recursive definition with an undefined state. And it does indeed
 
 
 ```verilog
-assign rptr_b_next = rptr_b_out + (read_in & !(wptr_b_sync == rptr_b_next));
-assign empty_out = (wptr_b_sync == rptr_b_next);
+assign rptr_b_next = RPTR_B + (REN & !(wptr_b_sync == rptr_b_next));
+assign EMPTY = (wptr_b_sync == rptr_b_next);
 ```
 
 It also seems that the verilog test-bench does take 1 out of every 2 clock cycles to write. 
@@ -134,15 +134,15 @@ So just make sure to follow this structure when reading and writing:
 Writing:
 ```verilog
 begin
-data_write_in <= TESTS_IN[i];
-write_in <= 1;
-@(posedge write_clk);
-if (!full_out)
+W_DI <= TESTS_IN[i];
+W_EN <= 1;
+@(posedge WCLK);
+if (!FULL)
     begin
-    $display("Data %d written to buffer, full: %d", i, full_out);
-    $display("Data %d written to buffer, full: %d", i, full_out);
-    // write_in <= 0;
-    // @(posedge write_clk);
+    $display("Data %d written to buffer, full: %d", i, FULL);
+    $display("Data %d written to buffer, full: %d", i, FULL);
+    // W_EN <= 0;
+    // @(posedge WCLK);
     end
 else
     $display("BUFFER IS FULL %d", i);
@@ -153,11 +153,11 @@ end
 Reading:
 ```verilog
 begin
-read_in <= 1;
-@(posedge read_clk);
-if (!empty_out)
+REN <= 1;
+@(posedge RCLK);
+if (!EMPTY)
     begin
-    if (data_read_out == TESTS_IN[i]) $display("Read test OK %d", i);
+    if (R_DO == TESTS_IN[i]) $display("Read test OK %d", i);
     else  $display("read Test FAIL %d", i);
     end
 else

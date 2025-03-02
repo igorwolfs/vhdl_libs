@@ -11,7 +11,7 @@ int main(int argc, char **argv)
     // Trace configuration
     m_contextp->traceEverOn(true);     // Turn on trace switch in context
     m_duvp->trace(m_tracep, 3);        // Set depth to 3
-    m_tracep->open("cnt_ceil_wf.vcd"); // Open the VCD file to store data
+    m_tracep->open("sim.vcd"); // Open the VCD file to store data
     // Write data to the waveform file
     while (!m_contextp->gotFinish())
     {

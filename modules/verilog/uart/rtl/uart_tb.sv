@@ -4,9 +4,10 @@
 # TEST BENCH FOR COMBINED UART MODULE
 Simple echo app which saves what is received by UART and sends it back after a few clock-ticks.
 
-
-
 */
+
+`define UART_SIM
+
 
 module uart_tb();
     // LOCAL PARAMETERS FOR TESTBENCH
@@ -18,69 +19,78 @@ module uart_tb();
 
     // TESTING
     localparam N_TESTS = 16;
+
     reg [DATA_BITS-1:0] wdata_q[$];
 
     // RX AND TX
-    reg nrst_in = 1;
-    reg   clk = 0;
+    reg nrst = 1'b1;
+    reg clk = 1'b0;
 
     // Used to control peripheral
     // TX
-    reg   data_rdy_in = 0;
-    reg   [(DATA_BITS-1):0] tx_data_in;
-    wire  tx_done_out;
-    wire  tx_serial_out;
+    reg   tx_drdy = 0;
+    reg   [(DATA_BITS-1):0] tx_di;
+    wire  tx_done;
+    wire  tx_dser;
 
     // RX
-    wire rx_serial_in; //! Must be a pin
-    wire [(DATA_BITS-1):0] rx_data_out;
-    wire data_rdy_out;
+    wire rx_dser; //! Must be a pin
+    wire [(DATA_BITS-1):0] rx_do;
+    wire rx_drdy;
 
-    assign rx_serial_in = tx_serial_out;
+    assign rx_dser = tx_dser;
 
     uart #(.CLOCK_FREQUENCY(CLK_FREQUENCY),
             .BAUD_RATE(BAUD_RATE),
             .DATA_BITS(DATA_BITS)) uart_inst
     (
-    .clk(clk), .nrst_in(nrst_in),
+    .CLK(clk), .NRST(nrst),
     // TX
-    .data_rdy_in(data_rdy_in), .tx_data_in(tx_data_in),
-    .tx_done_out(tx_done_out), .tx_serial_out(tx_serial_out), //! MUST BE A PIN
+    .TX_DRDY(tx_drdy), .TX_DI(tx_di),
+    .TX_DONE(tx_done), .TX_DSER(tx_dser), //! MUST BE A PIN
     // RX
-    .rx_serial_in(rx_serial_in), //! MUST BE A PIN
-    .rx_data_out(rx_data_out), .data_rdy_out(data_rdy_out)
+    .RX_DSER(rx_dser), //! MUST BE A PIN
+    .RX_DO(rx_do), .RX_DRDY(rx_drdy)
     );
 
     always
         #5 clk = ~clk; // 10 ns clock
 
-
 initial
     begin
         #BAUD_RATE_PERIOD_TICKS;
-        nrst_in <= 1;
+        nrst = 1;
         #BAUD_RATE_PERIOD_TICKS;
-        nrst_in <= 0;
+        nrst = 0;
         #BAUD_RATE_PERIOD_TICKS;
-        nrst_in <= 1;
+        nrst = 1;
+    end
+
+
+reg [31:0] tx_di32;
+
+always @(posedge nrst) begin
+        #BAUD_RATE_PERIOD_TICKS;
         #BAUD_RATE_PERIOD_TICKS;
 
-        tx_data_in = $urandom;
-        wdata_q.push_back(tx_data_in);
+        tx_di32 = $urandom;
+        tx_di = tx_di32[7:0];
+        wdata_q.push_back(tx_di);
 
-        data_rdy_in <= 1'b1; // Keep data ready high to see if it can just keep sending.
+        tx_drdy <= 1'b1; // Keep data ready high to see if it can just keep sending.
         for (integer test_idx=0; test_idx<=N_TESTS-1; test_idx = test_idx + 1)
         begin
             // Write starting bit and trigger send
-            @(negedge tx_serial_out); // Start bit occurred
-            tx_data_in = $urandom; // Load new data already -> for continuous sending
-            wdata_q.push_back(tx_data_in);
+            @(negedge tx_dser); // Start bit occurred
+            tx_di32 = $urandom;
+            tx_di = tx_di32[7:0];
+            wdata_q.push_back(tx_di);
 
-            @(posedge data_rdy_out);
-            if (rx_data_out == wdata_q[test_idx]) $display("Test %d success!", test_idx);
-            else $display("Test %d FAIL 0x%x != 0x%x", test_idx, rx_data_out, wdata_q[test_idx]);
+            @(posedge rx_drdy);
+            if (rx_do == wdata_q[test_idx]) $display("Test %d success!", test_idx);
+            else $display("Test %d FAIL 0x%x != 0x%x", test_idx, rx_do, wdata_q[test_idx]);
         end
-        data_rdy_in <= 1'b0;
+        tx_drdy <= 1'b0;
         $finish;
     end
 
