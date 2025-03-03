@@ -1,36 +1,6 @@
 `timescale 1ns/10ps
 
 
-/**
-# Purpose
-Simple UART module.
-
-# Inputs and outputs
-Parameters:
-- CLOCK_FREQUENCY (actual frequency)
-- BAUD_RATE (desired baud rate)
-- DATA_BITS (desired number of data bits)
-## Inputs:
-TX and RX
-- NRST (for resetting tx and rx)
-- clk (clock)
-TX
-- TX_DI (8-bits tx bus)
-- tx_rdy_in (gives a clk signal when data is ready and should be sent)
-RX
-- rx_serial_in (should be linked to RX pin)
-
-## Outputs:
-TX
-- tx_busy (could be ignored for now)
-- TX_DONE (shows that data is done sending)
-- tx_data_out (should be linked to output pin)
-RX
-- rx_data_out (data_bits-length)
-- data_rdy_out (signals that data can be read)
-
-**/
-
 module uart
     #(parameter CLOCK_FREQUENCY = 100_000_000,
     parameter BAUD_RATE = 115_200,
