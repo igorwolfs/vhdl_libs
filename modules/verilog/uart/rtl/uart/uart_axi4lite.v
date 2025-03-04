@@ -50,7 +50,7 @@ module uart_axi4lite
 
     reg tx_drdy;
     reg [DATA_BITS-1:0] tx_di;
-    wire tx_done, rx_drdy;
+    wire tx_done, tx_busy, rx_drdy;
     wire [DATA_BITS-1:0] rx_do;
 
     //======================================================
@@ -64,7 +64,8 @@ module uart_axi4lite
         .CLK(AXI_ACLK), .NRST(NRST),
         // TX
         .TX_DRDY(tx_drdy), .TX_DI(tx_di),
-        .TX_DONE(tx_done), .TX_DSER(TX_DSER), //! MUST BE A PIN
+        .TX_DONE(tx_done), .TX_BUSY(tx_busy),
+        .TX_DSER(TX_DSER), //! MUST BE A PIN
         // RX
         .RX_DSER(RX_DSER), //! MUST BE A PIN
         .RX_DO(rx_do), .RX_DRDY(rx_drdy)
@@ -74,13 +75,14 @@ module uart_axi4lite
     // AXI Write Address Channel
     //======================================================
 
+    // If the address bus data is valid and the address write bus is ready
+    // => It indicates an address write ready
     always @(posedge AXI_ACLK) begin
         if (!AXI_ARESETN)
             AXI_AWREADY <= 1'b0;
         else
         begin
             if (!AXI_AWREADY & AXI_AWVALID & AXI_WVALID)
-                // Accept address
                 AXI_AWREADY <= 1'b1;
             else
                 AXI_AWREADY <= 1'b0;
@@ -90,6 +92,7 @@ module uart_axi4lite
     //======================================================
     // AXI Write Data Channel
     //======================================================
+    // If the address write ready is indicated
     always @(posedge AXI_ACLK)
     begin
         if (!AXI_ARESETN)
@@ -97,8 +100,7 @@ module uart_axi4lite
         else
         begin
             if (!AXI_WREADY & AXI_WVALID & AXI_AWVALID)
-                // Accept write data
-                AXI_WREADY <= 1'b1;
+                AXI_WREADY <= 1'b1; // Accept write data
             else
                 AXI_WREADY <= 1'b0;
         end
@@ -112,15 +114,18 @@ module uart_axi4lite
     always @(posedge AXI_ACLK) begin
         if (!AXI_ARESETN)
         begin
-            // reset user registers
-            tx_di  <= {DATA_BITS{1'b0}};
-            TX_DRDY  <= 1'b0;
-        end 
+            tx_di  <= {DATA_BITS{1'b0}}; // reset user registers
+            tx_drdy  <= 1'b0;
+        end
         else
         begin
-            if (AXI_WREADY && AXI_WVALID && AXI_AWREADY && AXI_AWVALID) 
+            // If both the write and the address write channel are valid => Write to them
+            //! WARN: the tx-busy needs to be cleared by the peripheral before sending anything
+            if (AXI_WREADY & AXI_WVALID & AXI_AWREADY & AXI_AWVALID)
+            begin
                 tx_di <= AXI_WDATA[DATA_BITS-1:0];
-                // ADD OTHER REGISTER WRITES HERE IF RELEVANT
+                tx_drdy <= 1'b1; // DIRECTLY ENABLE SEND
+            end
             else
                 tx_drdy <= 1'b0;
         end
@@ -132,20 +137,22 @@ module uart_axi4lite
     //======================================================
     // Write Response Channel
     //======================================================
+    // Sets the response high when a succesfull response is sent out
     always @(posedge AXI_ACLK) begin
-        if (!AXI_ARESETN) begin
+        if (!AXI_ARESETN)
+        begin
             AXI_BVALID <= 1'b0;
             AXI_BRESP  <= 2'b0;
-        end 
-        else 
+        end
+        else
         begin
             if (AXI_AWREADY & AXI_AWVALID & ~AXI_BVALID &
-                AXI_WREADY & AXI_WVALID) 
+                AXI_WREADY & AXI_WVALID)
             begin
                 // Both address and data accepted
                 AXI_BVALID <= 1'b1;
                 AXI_BRESP  <= 2'b00; // 'OKAY' response
-            end 
+            end
             else if (AXI_BREADY && AXI_BVALID)
                 AXI_BVALID <= 1'b0; // Master accepted the response
         end
@@ -160,11 +167,10 @@ module uart_axi4lite
         begin
             AXI_ARREADY <= 1'b0;
         end
-        else 
+        else
         begin
             if (!AXI_ARREADY && AXI_ARVALID)
-                // Accept read address
-                AXI_ARREADY <= 1'b1;
+                AXI_ARREADY <= 1'b1; // Accept read address
             else
                 AXI_ARREADY <= 1'b0;
         end
@@ -173,15 +179,14 @@ module uart_axi4lite
     //======================================================
     // AXI Read Data Channel
     //======================================================
-    // Reading from UART
-    //! TODO: Latch the data-ready signal, should be cleared once data is read.
-    reg uart_reg_rx_drdy;
+    reg rx_drdy_latch; // Latched on data ready; cleared on data_read
+    reg [DATA_BITS-1:0] rx_do_latch;
 
     always @(posedge AXI_ACLK)
         begin
         if (!AXI_ARESETN)
         begin
-            uart_reg_rx_drdy <= 1'b0;
+            rx_drdy_latch <= 1'b0;
             AXI_RVALID <= 1'b0;
             AXI_RRESP  <= 2'b0;
         end
@@ -189,7 +194,10 @@ module uart_axi4lite
         begin
             // LATCH DRDY
             if (rx_drdy)
-                uart_reg_rx_drdy <= 1'b1;
+            begin
+                rx_drdy_latch <= 1'b1;
+                rx_do_latch <= rx_do;
+            end
             if (AXI_ARREADY & AXI_ARVALID & ~AXI_RVALID)
             begin
                 // Valid address; latch data for RDATA
@@ -198,19 +206,40 @@ module uart_axi4lite
                 case (AXI_ARADDR)
                     ADDR_TX_DATA:
                         AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, tx_di };
+                    ADDR_TX_BUSY:
+                        AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, tx_busy};
                     ADDR_RX_DATA:
-                        AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_do };
-                    ADDR_RX_DRDY:
                         begin
-                            AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, uart_reg_rx_drdy};
-                            uart_reg_rx_drdy <= 1'b0;
+                        AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_do_latch };
+                        rx_drdy_latch <= 1'b0;
                         end
-                    default:         AXI_RDATA <= 32'hDEADBEEF;
+                    ADDR_RX_DRDY:
+                        AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_drdy_latch};
+                    default:
+                        AXI_RDATA <= 32'hDEADBEEF;
                 endcase
-            end 
+            end
             else if (AXI_RVALID & AXI_RREADY)
                 AXI_RVALID <= 1'b0;
             end
         end
 
 endmodule
+
+/**
+Read-data:
+- Source: (here the peripheral) generates the valid-signal
+- Destination: (here the master bus) generates the ready-signal
+- Once the ready and valid signal are asserted for a cycle -> disable the valid signal
+Write-data:
+- Source: (here the master bus) generates the valid-signal
+- Destination: (here the peripheral bus) generates the ready-signal on valid assertion
+- Once the ready and valid signals are asserted -> disable the valid signal
+Waiting for write-address bus to be valid
+- This is done in case there are multiple masters on the bus, and one master already pulled the bus high
+
+
+TODO:
+- Data write to tx: check if data is directly written to the TX
+        - Check the busy-signal as well for the TX -> Make sure its readable so data can be transmitted when the data is not busy.
+*/

@@ -11,7 +11,7 @@ module uart_axi4lite_tb();
     reg s_axi_awvalid;
     wire s_axi_awready;
     reg [AXI_DWIDTH-1:0] s_axi_wdata;
-    reg [$clog2(AXI_DWIDTH-1)-1: 0] s_axi_wstrb;
+    reg [((AXI_DWIDTH/8))-1: 0] s_axi_wstrb;
     reg s_axi_wvalid;
     wire s_axi_wready;
     wire [1:0] s_axi_bresp;
@@ -56,3 +56,20 @@ module uart_axi4lite_tb();
         );
 
 endmodule
+
+/*
+Writing AXI-bus master
+- CPU: just executes load / store instructions
+- AXI-bus: converts them to AXI_RADDR, AXI_RDATA, AXI_WADDR, AXI_WDATA-signals
+The master-bus thus blocks the bus for >= 2 clock-cycles
+- So the CPU needs wait 2 clock cycles for bus access if its the only bus it can communicate on.
+Question:
+- How does the cpu know to wait 2 clock cycles? Normally it does 1 instruction per cycle.
+- It needs to be integrated with the AXI-bus.
+- The AXI master has to let the CPU know its still busy fetching data somehow
+- So the AXI master has to be integrated with the CPU. So fetching data from an IO takes > 1 clock cycle.
+Often a "bus fabric interconnect" is used to deal with the latency.
+Q:
+- How do other CPU's deal with this?
+    - 
+*/
