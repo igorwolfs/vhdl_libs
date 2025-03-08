@@ -10,7 +10,6 @@ module uart_axi4lite
     parameter BAUD_RATE = 115_200,
     parameter DATA_BITS = 8)
     (
-
         input                       AXI_ACLK,
         input                       AXI_ARESETN,
         input [AXI_AWIDTH-1:0]      AXI_AWADDR,
@@ -72,123 +71,64 @@ module uart_axi4lite
     );
 
     //======================================================
-    // AXI Write Address Channel
-    //======================================================
-
-    // If the address bus data is valid and the address write bus is ready
-    // => It indicates an address write ready
-    always @(posedge AXI_ACLK) begin
-        if (!AXI_ARESETN)
-            AXI_AWREADY <= 1'b0;
-        else
-        begin
-            if (!AXI_AWREADY & AXI_AWVALID & AXI_WVALID)
-                AXI_AWREADY <= 1'b1;
-            else
-                AXI_AWREADY <= 1'b0;
-        end
-    end
-
-    //======================================================
-    // AXI Write Data Channel
-    //======================================================
-    // If the address write ready is indicated
-    always @(posedge AXI_ACLK)
-    begin
-        if (!AXI_ARESETN)
-            AXI_WREADY <= 1'b0;
-        else
-        begin
-            if (!AXI_WREADY & AXI_WVALID & AXI_AWVALID)
-                AXI_WREADY <= 1'b1; // Accept write data
-            else
-                AXI_WREADY <= 1'b0;
-        end
-    end
-
-    //======================================================
-    // Write logic to your internal registers / UART signals
+    // Write DATA / ADDRES / RESPONSE + write logic into uart
     //======================================================
 
     wire [AXI_AWIDTH-1:0] write_addr = AXI_AWADDR;
     always @(posedge AXI_ACLK) begin
         if (!AXI_ARESETN)
         begin
+            AXI_AWREADY <= 1'b0;
+            AXI_WREADY <= 1'b0;
+            AXI_BVALID <= 1'b0;
+
             tx_di  <= {DATA_BITS{1'b0}}; // reset user registers
             tx_drdy  <= 1'b0;
         end
-        else
+        else if (AXI_WVALID & AXI_AWVALID)
         begin
             // If both the write and the address write channel are valid => Write to them
             //! WARN: the tx-busy needs to be cleared by the peripheral before sending anything
-            if (AXI_WREADY & AXI_WVALID & AXI_AWREADY & AXI_AWVALID)
+            if (AXI_AWREADY & AXI_WREADY)
             begin
+                AXI_AWREADY <= 1'b0;
+                AXI_WREADY <= 1'b0;
+                AXI_BVALID <= 1'b0;
                 tx_di <= AXI_WDATA[DATA_BITS-1:0];
                 tx_drdy <= 1'b1; // DIRECTLY ENABLE SEND
             end
             else
-                tx_drdy <= 1'b0;
-        end
-    end
-
-    // Provide TX_DI to the UART
-    assign uart_TX_DI = tx_data_reg;  // or 8 bits from that register
-
-    //======================================================
-    // Write Response Channel
-    //======================================================
-    // Sets the response high when a succesfull response is sent out
-    always @(posedge AXI_ACLK) begin
-        if (!AXI_ARESETN)
-        begin
-            AXI_BVALID <= 1'b0;
-            AXI_BRESP  <= 2'b0;
-        end
-        else
-        begin
-            if (AXI_AWREADY & AXI_AWVALID & ~AXI_BVALID &
-                AXI_WREADY & AXI_WVALID)
-            begin
-                // Both address and data accepted
+                begin
+                AXI_AWREADY <= 1'b1;
+                AXI_WREADY <= 1'b1;
                 AXI_BVALID <= 1'b1;
-                AXI_BRESP  <= 2'b00; // 'OKAY' response
-            end
-            else if (AXI_BREADY && AXI_BVALID)
-                AXI_BVALID <= 1'b0; // Master accepted the response
-        end
-    end
-
-    //======================================================
-    // AXI Read Address Channel
-    //======================================================
-
-    always @(posedge AXI_ACLK) begin
-        if (!AXI_ARESETN)
-        begin
-            AXI_ARREADY <= 1'b0;
+                AXI_BRESP <= 2'b00;
+                tx_drdy <= 1'b0;
+                end
         end
         else
-        begin
-            if (!AXI_ARREADY && AXI_ARVALID)
-                AXI_ARREADY <= 1'b1; // Accept read address
-            else
-                AXI_ARREADY <= 1'b0;
-        end
+            begin
+                AXI_AWREADY <= 1'b0;
+                AXI_WREADY <= 1'b0;
+                AXI_BVALID <= 1'b0;
+            end
     end
 
     //======================================================
-    // AXI Read Data Channel
+    // READ DATA / ADDRESS + write logic into uart
     //======================================================
-    reg rx_drdy_latch; // Latched on data ready; cleared on data_read
-    reg [DATA_BITS-1:0] rx_do_latch;
+    reg rx_drdy_latch; // Indicates whether latched data has been read
+    reg [DATA_BITS-1:0] rx_do_latch; // Used for data latching every time rx_drdy is triggered
 
     always @(posedge AXI_ACLK)
-        begin
+    begin
         if (!AXI_ARESETN)
         begin
             rx_drdy_latch <= 1'b0;
+            AXI_RDATA <= 32'hDEADBEEF;
             AXI_RVALID <= 1'b0;
-            AXI_RRESP  <= 2'b0;
+            AXI_ARREADY <= 1'b0;
+            AXI_RRESP <= 2'b00;
         end
         else
         begin
@@ -198,31 +138,44 @@ module uart_axi4lite
                 rx_drdy_latch <= 1'b1;
                 rx_do_latch <= rx_do;
             end
-            if (AXI_ARREADY & AXI_ARVALID & ~AXI_RVALID)
+            if (AXI_ARVALID & AXI_RREADY)
             begin
-                // Valid address; latch data for RDATA
-                AXI_RVALID <= 1'b1;
-                AXI_RRESP  <= 2'b00; // 'OKAY'
-                case (AXI_ARADDR)
-                    ADDR_TX_DATA:
-                        AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, tx_di };
-                    ADDR_TX_BUSY:
-                        AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, tx_busy};
-                    ADDR_RX_DATA:
-                        begin
-                        AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_do_latch };
-                        rx_drdy_latch <= 1'b0;
-                        end
-                    ADDR_RX_DRDY:
-                        AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_drdy_latch};
-                    default:
-                        AXI_RDATA <= 32'hDEADBEEF;
-                endcase
+                if (AXI_RVALID & AXI_ARREADY)
+                begin
+                    AXI_RVALID <= 1'b0;
+                    AXI_ARREADY <= 1'b0;
+
+                    case (AXI_ARADDR)
+                        ADDR_TX_DATA:
+                            AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, tx_di };
+                        ADDR_TX_BUSY:
+                            AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, tx_busy};
+                        ADDR_RX_DATA:
+                            begin
+                            AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_do_latch };
+                            rx_drdy_latch <= 1'b0;
+                            end
+                        ADDR_RX_DRDY:
+                            AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_drdy_latch};
+                        default:
+                            AXI_RDATA <= 32'hDEADBEEF;
+                    endcase
+                end
+                else
+                begin
+                    AXI_RVALID <= 1'b1;
+                    AXI_ARREADY <= 1'b1;
+                    AXI_RRESP <= 2'b00;
+                end
             end
-            else if (AXI_RVALID & AXI_RREADY)
+            else
+            begin
                 AXI_RVALID <= 1'b0;
+                AXI_ARREADY <= 1'b0;
+                AXI_RDATA <= DMEM_RDATA;
             end
         end
+    end
 
 endmodule
 
