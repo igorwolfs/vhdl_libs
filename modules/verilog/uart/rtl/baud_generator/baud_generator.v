@@ -21,11 +21,9 @@ module baud_generator
     input NRST
     );
 
-
     // Note: we only need a pulse on the rising edge, NOT on the rising AND the falling edge -> So the division by 2 is unnecessary.
     //! HOWEVER: make sure to also fix the baud rate pulse.
     parameter CLK_COUNT_DIV_MAX = (CLOCK_IN / (OVERSAMPLING_RATE * BAUD_RATE));
-
 
     reg [$clog2(CLK_COUNT_DIV_MAX-1)-1:0] divpulse_cnt;
     reg [$clog2(OVERSAMPLING_RATE-1)-1:0] baudpulse_cnt;
