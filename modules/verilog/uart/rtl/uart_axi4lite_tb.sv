@@ -31,7 +31,7 @@ module uart_axi4lite_tb();
         // UART PARAMETERS
         .CLOCK_FREQUENCY(100_000_000),
         .BAUD_RATE(115_200),
-        .DATA_BITS(8))
+        .DATA_BITS(8)) uart_axi4lite_inst
         (.AXI_ACLK(s_axi_aclk),
         .AXI_ARESETN(s_axi_aresetn),
         .AXI_AWADDR(s_axi_awaddr),

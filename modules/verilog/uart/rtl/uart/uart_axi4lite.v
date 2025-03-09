@@ -1,4 +1,4 @@
-
+`timescale 1ns/10ps
 
 module uart_axi4lite
     #(
@@ -56,11 +56,11 @@ module uart_axi4lite
     // UART ENTITY
     //======================================================
 
-    uart #(.CLOCK_FREQUENCY(CLK_FREQUENCY),
+    uart #(.CLOCK_FREQUENCY(CLOCK_FREQUENCY),
             .BAUD_RATE(BAUD_RATE),
             .DATA_BITS(DATA_BITS)) uart_inst
     (
-        .CLK(AXI_ACLK), .NRST(NRST),
+        .CLK(AXI_ACLK), .NRST(AXI_ARESETN),
         // TX
         .TX_DRDY(tx_drdy), .TX_DI(tx_di),
         .TX_DONE(tx_done), .TX_BUSY(tx_busy),
@@ -88,14 +88,19 @@ module uart_axi4lite
         else if (AXI_WVALID & AXI_AWVALID)
         begin
             // If both the write and the address write channel are valid => Write to them
-            //! WARN: the tx-busy needs to be cleared by the peripheral before sending anything
+            //! WARN: the tx-busy needs to be checked by the peripheral before sending anything
             if (AXI_AWREADY & AXI_WREADY)
             begin
                 AXI_AWREADY <= 1'b0;
                 AXI_WREADY <= 1'b0;
                 AXI_BVALID <= 1'b0;
-                tx_di <= AXI_WDATA[DATA_BITS-1:0];
-                tx_drdy <= 1'b1; // DIRECTLY ENABLE SEND
+                case (AXI_AWADDR[3:0])
+                    ADDR_TX_DATA:
+                    begin
+                        $display("Wrote to UART tx");
+                        tx_di <= AXI_WDATA[DATA_BITS-1:0];
+                        tx_drdy <= 1'b1; // DIRECTLY ENABLE SEND
+                    end
             end
             else
                 begin
@@ -145,18 +150,22 @@ module uart_axi4lite
                     AXI_RVALID <= 1'b0;
                     AXI_ARREADY <= 1'b0;
 
-                    case (AXI_ARADDR)
+                    case (AXI_ARADDR[3:0])
                         ADDR_TX_DATA:
+                            $display("Reading ADDR_TX_DATA");
                             AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, tx_di };
                         ADDR_TX_BUSY:
-                            AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, tx_busy};
+                            $display("Reading ADDR_TX_BUSY");
+                            AXI_RDATA <= { { (AXI_DWIDTH-1){1'b0} }, tx_busy};
                         ADDR_RX_DATA:
                             begin
+                            $display("Reading ADDR_RX_DATA");
                             AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_do_latch };
                             rx_drdy_latch <= 1'b0;
                             end
                         ADDR_RX_DRDY:
-                            AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_drdy_latch};
+                            $display("Reading ADDR_RX_DRDY");
+                            AXI_RDATA <= { { (AXI_DWIDTH-1){1'b0} }, rx_drdy_latch};
                         default:
                             AXI_RDATA <= 32'hDEADBEEF;
                     endcase
@@ -172,7 +181,7 @@ module uart_axi4lite
             begin
                 AXI_RVALID <= 1'b0;
                 AXI_ARREADY <= 1'b0;
-                AXI_RDATA <= DMEM_RDATA;
+                AXI_RDATA <= 32'hDEADBEEF;
             end
         end
     end
