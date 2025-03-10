@@ -17,7 +17,8 @@ module uart
         // RX
         input   RX_DSER, //! RX_PIN
         output  [(DATA_BITS-1):0] RX_DO,
-        output  RX_DRDY
+        output  RX_DRDY,
+        output  RX_BUSY
     );
 
     // CONSTANTS
@@ -53,6 +54,7 @@ module uart
                 .DIVPULSE(div_pulse),
                 .RX_DSER(RX_DSER),
                 .RX_DRDY(RX_DRDY),
-                .RX_DO(RX_DO)
+                .RX_DO(RX_DO),
+                .RX_BUSY(RX_BUSY)
     );
 endmodule
