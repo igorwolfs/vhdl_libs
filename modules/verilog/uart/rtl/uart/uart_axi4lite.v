@@ -41,7 +41,7 @@ module uart_axi4lite
     localparam ADDR_TX_DATA = 4'h0;
     localparam ADDR_TX_BUSY = 4'h4;
     localparam ADDR_RX_DATA = 4'h8;
-    localparam ADDR_RX_DRDY = 4'hC;
+    localparam ADDR_RX_STATE = 4'hC;
 
     //======================================================
     // SIGNALS
@@ -49,7 +49,7 @@ module uart_axi4lite
 
     reg tx_drdy;
     reg [DATA_BITS-1:0] tx_di;
-    wire tx_done, tx_busy, rx_drdy;
+    wire tx_done, tx_busy, rx_drdy, rx_busy;
     wire [DATA_BITS-1:0] rx_do;
 
     //======================================================
@@ -67,7 +67,7 @@ module uart_axi4lite
         .TX_DSER(TX_DSER), //! MUST BE A PIN
         // RX
         .RX_DSER(RX_DSER), //! MUST BE A PIN
-        .RX_DO(rx_do), .RX_DRDY(rx_drdy)
+        .RX_DO(rx_do), .RX_DRDY(rx_drdy), .RX_BUSY(rx_busy)
     );
 
     //======================================================
@@ -95,12 +95,12 @@ module uart_axi4lite
                 AXI_WREADY <= 1'b0;
                 AXI_BVALID <= 1'b0;
                 tx_drdy <= 1'b0;
-            end
-            else
-            begin
                 $display("Writing to UART");
                 $display("AWADDR: %0x", AXI_AWADDR);
                 $display("WDATA: %0x", AXI_WDATA);
+            end
+            else
+            begin
                 case (AXI_AWADDR[3:0])
                     ADDR_TX_DATA:
                     begin
@@ -162,15 +162,15 @@ module uart_axi4lite
                 begin
                     AXI_RVALID <= 1'b0;
                     AXI_ARREADY <= 1'b0;
+                    $display("Reading from UART");
+                    $display("ARADDR: %0x", AXI_ARADDR);
+                    $display("RDATA: %0x", AXI_RDATA);
                 end
                 else
                 begin
                     AXI_RVALID <= 1'b1;
                     AXI_ARREADY <= 1'b1;
                     AXI_RRESP <= 2'b00;
-                    $display("Reading from UART");
-                    $display("ARADDR: %0x", AXI_ARADDR);
-                    $display("RDATA: %0x", AXI_RDATA);
 
                     case (AXI_ARADDR[3:0])
                         ADDR_TX_DATA:
@@ -189,10 +189,10 @@ module uart_axi4lite
                             AXI_RDATA <= { { (AXI_DWIDTH-DATA_BITS){1'b0} }, rx_do_latch };
                             rx_drdy_latch <= 1'b0;
                             end
-                        ADDR_RX_DRDY:
+                        ADDR_RX_STATE:
                             begin
                             $display("Reading ADDR_RX_DRDY");
-                            AXI_RDATA <= { { (AXI_DWIDTH-1){1'b0} }, rx_drdy_latch};
+                            AXI_RDATA <= { { (AXI_DWIDTH-2){1'b0} }, rx_busy, rx_drdy_latch};
                             end
                         default:
                             AXI_RDATA <= 32'hDEADBEEF;

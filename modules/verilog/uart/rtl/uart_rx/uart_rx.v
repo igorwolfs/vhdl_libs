@@ -35,7 +35,8 @@ module uart_rx
    input            DIVPULSE,
    input            RX_DSER,
    output reg       RX_DRDY,        // reg: single-bit output
-   output reg [DATA_BITS-1:0] RX_DO // 8-bit output [MSB, LSB]
+   output reg [DATA_BITS-1:0] RX_DO, // 8-bit output [MSB, LSB]
+   output           RX_BUSY
    );
 
   // CONSTANTS
@@ -45,10 +46,11 @@ module uart_rx
   localparam S_STOP      = 2'b11;
 
   wire rx_serial_stable;
-
   // $clog2(N): minimum number of bits required to represent the parameter CLKS_PER_BIT
   reg [$clog2(DATA_BITS+2-1):0] data_bits_idx; // DATA_BITS + START STATE + STOP STATE
   reg [1:0] S_next;
+
+  assign RX_BUSY = (S_next != S_IDLE);
 
   // double flipflop
   double_ff_sync #(.WIDTH(1), .NRST_VAL(1)) ff_sync
