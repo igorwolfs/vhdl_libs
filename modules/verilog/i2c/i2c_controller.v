@@ -28,13 +28,13 @@ module i2c_controller #(CLOCK_FREQUENCY=100_000_000, I2C_FREQ=100_000, DATA_BITS
 	input NRST,
 	inout I2C_SDA,			//< SPI data line
 	inout I2C_SCL,			//< SPI clock
-	input [7:0] IDATA,		//< 8-bit data input
-	input [6:0] IADDR,		//< 7-bit ADDR input
-	input I_RW				//< 1-bit read/write input
-	output reg [7:0] ODATA,	//< 8-bit data output read
-	output reg BUSY, 		//< Indicates busy-state to output
-	output ODRDY,			//< Data received ready
-	input IDRDY				//< Data ready for transmission
+	input [7:0] IDATA,		   //< 8-bit data input
+	input [6:0] IADDR,		   //< 7-bit ADDR input
+	input I_RW,				    //< 1-bit read/write input
+	output reg [7:0] ODATA,	   //< 8-bit data output read
+	output reg BUSY, 		    //< Indicates busy-state to output
+	output ODRDY,			   //< Data received ready
+	input IDRDY				    //< Data ready for transmission
 );
 
 // * STATE PARAMETERS AND VARIABLES
@@ -49,13 +49,16 @@ localparam S_RX_ACK = 7;
 localparam S_RX_DATA = 8;
 localparam S_DONE = 9;
 
-wire [7:0] state_next;
+reg [7:0] state_next;
 reg [3:0] state_internal;		//> State of internal state machine.
 
+reg TX_I2C_SDA, TX_I2C_SCL;
+
 // * TX VARIABLES
-parameter CYCLES_I2C_FULL = $clog2(CLOCK_FREQUENCY / I2C_FREQ);
+parameter CYCLES_I2C_FULL = CLOCK_FREQUENCY / I2C_FREQ;
 parameter CYCLES_I2C_HALF = CYCLES_I2C_FULL / 2;
 parameter CYCLES_I2C_QUART = CYCLES_I2C_HALF / 2; 				//> Start clock one quarter after I2C start
+
 reg [7:0] addr_tx_internal; 									//> Address index at send
 reg [$clog2(7):0] addr_i; 										//> Data index at send
 reg [7:0] data_tx_internal;										//> Data to be sent
@@ -64,31 +67,43 @@ reg ack_internal;												//> Keeps track of internal ACK for STOP condition
 reg [$clog2(CYCLES_I2C_HALF)-1:0] i2c_clk_count;				//> SPI half clock count
 
 // * CLK 
-wire i2c_clk_enable;
+reg i2c_clk_enable;
+
+// ******** DETERMINING SCL AND SDA **********
+assign I2C_SDA = (state_internal != S_IDLE) ? TX_I2C_SDA :
+                    1'b1;
+assign I2C_SCL = (state_internal != S_IDLE) ? TX_I2C_SCL :
+                    1'b1;
 
 
-// * COMBINATORIAL
+// *******************************************************************************
+// ***************** COMBINATORIAL STATE MACHINE DETERMINATION *******************
+// *******************************************************************************
+
 always @(*)
 begin: SM_COMB
 	state_next = S_IDLE;
 	i2c_clk_enable = 1'b0;
+	BUSY = 1'b1;
 	case (state_internal)
 		S_IDLE:
 		begin
-			if (IDRDY) begin
+			if (IDRDY) 
+			begin
 				state_next = S_TX_START;
 				i2c_clk_enable = 1;
 			end
-			else if ((!I2C_SDA) & I2C_SCL) begin
+			else if ((!TX_I2C_SDA) & TX_I2C_SCL) begin
 				state_next = S_RX_DATA;
 			end
 			else begin
 				state_next = S_IDLE;
 			end
+			BUSY = 1'b0;
 		end
 		S_TX_START:
 		begin
-			if (I2C_clk_count <= CYCLES_I2C_QUART)
+			if (i2c_clk_count < CYCLES_I2C_QUART)
 			begin
 				state_next = S_TX_START;
 				i2c_clk_enable = 1;
@@ -106,20 +121,23 @@ begin: SM_COMB
 			// IF the address index has reached max -> move onto the data tx-state
 			// Initialization: wait n clock cycles -> set clock
 			// Start clock -> set low (50 % low, 50 % high)
-			if (data_i > 7)
+			if (addr_i > 7)
 			begin
 				state_next = S_TX_ACK;
 			end
-			else;
+			else
+			begin
+				state_next = S_TX_ADDR;
+			end
 		end
 		S_TX_ACK:
 		begin
 			i2c_clk_enable = 1; //> If clock edge is high -> stop condition, if low -> continue to data
-			if ((ack_internal) & (i2c_clk_count == CYCLES_I2C_HALF) & (I2C_SCL == 1))
+			if ((ack_internal) & (i2c_clk_count == CYCLES_I2C_HALF) & (TX_I2C_SCL == 1))
 			begin
 				state_next = S_TX_STOP;
 			end
-			else if ((!ack_internal) & (i2c_clk_count == CYCLES_I2C_HALF) & (I2C_SCL == 1))
+			else if ((!ack_internal) & (i2c_clk_count == CYCLES_I2C_HALF) & (TX_I2C_SCL == 1))
 			begin
 				if (data_i < 8)
 				begin
@@ -146,14 +164,21 @@ begin: SM_COMB
 			begin
 				state_next = S_TX_ACK;
 			end
-			else;
+			else
+			begin
+				state_next = S_TX_DATA;
+			end
 		end
 		S_TX_STOP:
 		begin
 			i2c_clk_enable = 1;
-			if ((I2C_SDA == 1) & (I2C_SCL == 1)) //> Stop condition
+			if ((TX_I2C_SDA == 1) & (TX_I2C_SCL == 1) & (i2c_clk_count >= CYCLES_I2C_HALF)) //> Stop condition
 			begin
 				state_next = S_IDLE;
+			end
+			else
+			begin
+				state_next = S_TX_STOP;
 			end
 		end
 	endcase
@@ -173,8 +198,8 @@ begin
 		end
 		else
 		begin
-			I2C_SCL <= ~I2C_SCL; 	//> SPI clock toggle
-			i2c_clk_count <= 0;		//> 
+			TX_I2C_SCL = ~TX_I2C_SCL; 	//> SPI clock toggle
+			i2c_clk_count <= 0;			//> 
 		end
 	end
 	else
@@ -194,8 +219,8 @@ begin: I2C_TX_SYNC
 		state_internal <= S_IDLE;
 		data_tx_internal <= 8'b0;
 		addr_tx_internal <= 8'b0;
-		I2C_SDA <= 1;		//> Doesn't necessarily need to be driven
-		I2C_SCL <= 1; 		//> Doesn't necessarily need to be driven
+		TX_I2C_SDA <= 1;		//> Doesn't necessarily need to be driven
+		TX_I2C_SCL <= 1; 		//> Doesn't necessarily need to be driven
 	end
 	else
 	begin
@@ -203,11 +228,13 @@ begin: I2C_TX_SYNC
 		case (state_next)
 			S_TX_START:
 			begin
-				I2C_SDA <= 0; //> Keep low for n clock cycles
+				TX_I2C_SDA <= 0; //> Keep low for n clock cycles
 				if (state_internal == S_IDLE)
 				begin
 					data_tx_internal <= IDATA;
 					addr_tx_internal <= {IADDR[6:0], I_RW}; //> Address to be sent
+					data_i <= 0;
+					addr_i <= 0;
 				end
 			end
 			S_TX_ADDR:
@@ -215,19 +242,19 @@ begin: I2C_TX_SYNC
 				if (state_internal == S_TX_START)
 				begin
 					ack_internal <= 0; 		//> Reset ACK
-					I2C_SCL <= 0; 			//> Clock count start
+					TX_I2C_SCL <= 0; 			//> Clock count start
 				end
 				else
-					if ((i2c_clk_count == CYCLES_I2C_QUART) & (I2C_SCL == 0))  //> Change in the centre of the low-cycle
+					if ((i2c_clk_count == CYCLES_I2C_QUART) & (TX_I2C_SCL == 0))  //> Change in the centre of the low-cycle
 					begin
-						I2C_SDA <= addr_tx_internal[addr_i]; 	//> Pull data line low
+						TX_I2C_SDA <= addr_tx_internal[addr_i]; 	//> Pull data line low
 						addr_i <= addr_i + 1;
 					end
 					else;
 			end
 			S_TX_ACK:
 			begin
-				if ((I2C_SDA == 1) & (I2C_SCL == 1)) 	//> Sample the input line
+				if ((TX_I2C_SDA == 1) & (TX_I2C_SCL == 1)) 	//> Sample the input line
 				begin
 					ack_internal <= 1;
 				end
@@ -235,22 +262,22 @@ begin: I2C_TX_SYNC
 			end
 			S_TX_DATA:
 			begin
-				if ((i2c_clk_count == CYCLES_I2C_QUART) & (I2C_SCL == 0)) 	//> Change in the centre of the low-cycle
+				if ((i2c_clk_count == CYCLES_I2C_QUART) & (TX_I2C_SCL == 0)) 	//> Change in the centre of the low-cycle
 				begin
-					I2C_SDA <= data_tx_internal[data_i]; 	//> Pull data line low
+					TX_I2C_SDA <= data_tx_internal[data_i]; 	//> Pull data line low
 					data_i <= data_i + 1;
 				end
 				else;
 			end
 			S_TX_STOP:
 			begin
-				if (i2c_clk_count == CYCLES_I2C_QUART)
+				if ((i2c_clk_count == CYCLES_I2C_QUART) & (TX_I2C_SCL == 0))
 				begin
-					I2C_SCL <= 1; 		//> Pull clock line high
+					TX_I2C_SDA <= 0;		//> Pull data line low to pull high at 75 %
 				end
-				else if (i2c_clk_count == CYCLES_I2C_HALF)
+				else if (i2c_clk_count == CYCLES_I2C_QUART)
 				begin
-					I2C_SDA <= 1;	 	//> Pull data line high
+					TX_I2C_SDA <= 1;	 	//> pull SDA high 75 %
 				end
 				else;
 			end
@@ -317,4 +344,13 @@ TODO:
 - STOP condition
 	- SCL goes high after 25 % of the clock cycle
 	- SDA goes high after 25 % of the clock cycle
+
+
+*! ISSUE:
+- It seems like the I2C_SCL goes high and the I2C_SDA goes low just after that.
+- Happens from the transition from phase 5 to 0, to 1
+- Issue: phase 5 (STOP) is to short, 
+	- I2C_SDA should go low quarter of the I2C cycle
+	- I2C_SCL should go high half-way (as usual)
+	- I2C_SDA should go high 3/4th of the I2C cycle
 */
