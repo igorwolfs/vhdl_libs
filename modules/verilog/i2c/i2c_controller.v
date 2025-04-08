@@ -49,7 +49,7 @@ localparam S_RX_ACK = 7;
 localparam S_RX_DATA = 8;
 localparam S_DONE = 9;
 
-reg [7:0] state_next;
+reg [3:0] state_next;
 reg [3:0] state_internal;		//> State of internal state machine.
 
 reg TX_I2C_SDA, TX_I2C_SCL;
@@ -70,10 +70,10 @@ reg [$clog2(CYCLES_I2C_HALF)-1:0] i2c_clk_count;				//> SPI half clock count
 reg i2c_clk_enable;
 
 // ******** DETERMINING SCL AND SDA **********
-assign I2C_SDA = (state_internal != S_IDLE) ? TX_I2C_SDA :
-                    1'b1;
+assign I2C_SDA = ((state_internal != S_IDLE) & (state_internal != S_TX_ACK)) ? TX_I2C_SDA :
+                    1'bz;
 assign I2C_SCL = (state_internal != S_IDLE) ? TX_I2C_SCL :
-                    1'b1;
+                    1'bz;
 
 
 // *******************************************************************************
@@ -121,7 +121,7 @@ begin: SM_COMB
 			// IF the address index has reached max -> move onto the data tx-state
 			// Initialization: wait n clock cycles -> set clock
 			// Start clock -> set low (50 % low, 50 % high)
-			if (addr_i > 7)
+			if (addr_i > 8)
 			begin
 				state_next = S_TX_ACK;
 			end
@@ -247,8 +247,9 @@ begin: I2C_TX_SYNC
 				else
 					if ((i2c_clk_count == CYCLES_I2C_QUART) & (TX_I2C_SCL == 0))  //> Change in the centre of the low-cycle
 					begin
-						TX_I2C_SDA <= addr_tx_internal[addr_i]; 	//> Pull data line low
-						addr_i <= addr_i + 1;
+						if (addr_i < DATA_BITS)
+							TX_I2C_SDA <= addr_tx_internal[addr_i]; 	//> Pull data line low
+						addr_i <= addr_i + 1;							//> 
 					end
 					else;
 			end
@@ -271,11 +272,12 @@ begin: I2C_TX_SYNC
 			end
 			S_TX_STOP:
 			begin
-				if ((i2c_clk_count == CYCLES_I2C_QUART) & (TX_I2C_SCL == 0))
+				if (TX_I2C_SCL == 0)
 				begin
 					TX_I2C_SDA <= 0;		//> Pull data line low to pull high at 75 %
+					TX_I2C_SCL <= 1;
 				end
-				else if (i2c_clk_count == CYCLES_I2C_QUART)
+				else if (i2c_clk_count == CYCLES_I2C_HALF)
 				begin
 					TX_I2C_SDA <= 1;	 	//> pull SDA high 75 %
 				end
@@ -347,10 +349,8 @@ TODO:
 
 
 *! ISSUE:
-- It seems like the I2C_SCL goes high and the I2C_SDA goes low just after that.
-- Happens from the transition from phase 5 to 0, to 1
-- Issue: phase 5 (STOP) is to short, 
-	- I2C_SDA should go low quarter of the I2C cycle
-	- I2C_SCL should go high half-way (as usual)
-	- I2C_SDA should go high 3/4th of the I2C cycle
+- It seems like the SCL goes high and the SDA stays high as well, instead of going low
+- SDA isn't high impedance where it should be
+- Issue here: probably the issue is that the I2C_SDA should be pulled down externally, which isn't happening
+   - Maybe make sure you have an I2C RX peripheral first so you can test both together.
 */
