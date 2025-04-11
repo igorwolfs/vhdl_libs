@@ -1,124 +1,178 @@
 `timescale 1ns/1ps
-module tb_i2c_controller;
+module tb_dual_i2c;
 
-  //--------------------------------------------------------------------------
+  //-------------------------------------------------------------------------
   // Parameters
-  //--------------------------------------------------------------------------  
+  //-------------------------------------------------------------------------
   parameter CLOCK_FREQUENCY = 100_000_000;
   parameter I2C_FREQ        = 100_000;
   parameter DATA_BITS       = 8;
 
-  //--------------------------------------------------------------------------
-  // Signal Declaration
-  //--------------------------------------------------------------------------  
-  reg               CLK;
-  reg               NRST;
-  wire              I2C_SDA;
-  wire              I2C_SCL;
-  reg  [7:0]        IDATA;
-  reg  [6:0]        IADDR;
-  reg               I_RW;
-  wire [7:0]        ODATA;
-  wire              BUSY;
-  wire              ODRDY;
-  reg               IDRDY;
+  //-------------------------------------------------------------------------
+  // Clock and Reset Signals
+  //-------------------------------------------------------------------------
+  reg CLK;
+  reg NRST;
 
-  //--------------------------------------------------------------------------
-  // Pull-ups for I2C open-drain behavior (optional for simulation)
-  //--------------------------------------------------------------------------  
-  pullup (I2C_SDA);
-  pullup (I2C_SCL);
+  //-------------------------------------------------------------------------
+  // I2C Bus Wires (shared open-drain bus)
+  //-------------------------------------------------------------------------
+  wire I2C_SDA_bus;
+  wire I2C_SCL_bus;
 
-  //--------------------------------------------------------------------------
-  // DUT Instantiation
-  //--------------------------------------------------------------------------  
+  // Instantiate pull-ups for simulation (open-drain bus behavior)
+  pullup (I2C_SDA_bus);
+  pullup (I2C_SCL_bus);
+
+  //-------------------------------------------------------------------------
+  // Master (Transmitter) Signals
+  //-------------------------------------------------------------------------
+  reg [7:0] master_IDATA;
+  reg [6:0] master_IADDR;
+  reg       master_I_RW;    // 0 = write, 1 = read
+  reg       master_IDRDY;
+  wire [7:0] master_ODATA;
+  wire       master_BUSY;
+  wire       master_ODRDY;
+
+  //-------------------------------------------------------------------------
+  // Slave (Receiver) Signals
+  //-------------------------------------------------------------------------
+  reg [7:0] slave_IDATA;
+  reg [6:0] slave_IADDR;
+  reg       slave_I_RW;     // For a slave, this could determine data direction.
+  reg       slave_IDRDY;
+  wire [7:0] slave_ODATA;
+  wire       slave_BUSY;
+  wire       slave_ODRDY;
+
+  //-------------------------------------------------------------------------
+  // Instantiate the Master I2C Controller
+  //-------------------------------------------------------------------------
   i2c_controller #(
     .CLOCK_FREQUENCY(CLOCK_FREQUENCY),
     .I2C_FREQ(I2C_FREQ),
     .DATA_BITS(DATA_BITS)
-  ) dut (
+  ) master_i2c (
     .CLK    (CLK),
     .NRST   (NRST),
-    .I2C_SDA(I2C_SDA),
-    .I2C_SCL(I2C_SCL),
-    .IDATA  (IDATA),
-    .IADDR  (IADDR),
-    .I_RW   (I_RW),
-    .ODATA  (ODATA),
-    .BUSY   (BUSY),
-    .ODRDY  (ODRDY),
-    .IDRDY  (IDRDY)
+    .I2C_SDA(I2C_SDA_bus),
+    .I2C_SCL(I2C_SCL_bus),
+    .IDATA  (master_IDATA),
+    .IADDR  (master_IADDR),
+    .I_RW   (master_I_RW),
+    .ODATA  (master_ODATA),
+    .BUSY   (master_BUSY),
+    .ODRDY  (master_ODRDY),
+    .IDRDY  (master_IDRDY)
   );
 
-  //--------------------------------------------------------------------------
-  // Clock Generation: 10 ns period = 100 MHz clock
-  //--------------------------------------------------------------------------  
+  //-------------------------------------------------------------------------
+  // Instantiate the Slave I2C Controller
+  //-------------------------------------------------------------------------
+  i2c_controller #(
+    .CLOCK_FREQUENCY(CLOCK_FREQUENCY),
+    .I2C_FREQ(I2C_FREQ),
+    .DATA_BITS(DATA_BITS)
+  ) slave_i2c (
+    .CLK    (CLK),
+    .NRST   (NRST),
+    .I2C_SDA(I2C_SDA_bus),
+    .I2C_SCL(I2C_SCL_bus),
+    .IDATA  (slave_IDATA),
+    .IADDR  (slave_IADDR),
+    .I_RW   (slave_I_RW),
+    .ODATA  (slave_ODATA),
+    .BUSY   (slave_BUSY),
+    .ODRDY  (slave_ODRDY),
+    .IDRDY  (slave_IDRDY)
+  );
+
+  //-------------------------------------------------------------------------
+  // Clock Generation: 100 MHz (10 ns period)
+  //-------------------------------------------------------------------------
   initial begin
     CLK = 0;
-    forever #5 CLK = ~CLK;
+    forever #5 CLK = ~CLK;  // toggle every 5 ns
   end
 
-  //--------------------------------------------------------------------------
+  //-------------------------------------------------------------------------
   // Reset Generation
-  //--------------------------------------------------------------------------  
+  //-------------------------------------------------------------------------
   initial begin
     NRST = 0;
     #20;
     NRST = 1;
   end
 
-  //--------------------------------------------------------------------------
-  // Optional Waveform Dump (for simulation viewing)
-  //--------------------------------------------------------------------------  
-  initial begin
-    $dumpfile("tb_i2c_controller.vcd");
-    $dumpvars(0, tb_i2c_controller);
-  end
-
-  //--------------------------------------------------------------------------
+  //-------------------------------------------------------------------------
   // Test Sequence
-  //--------------------------------------------------------------------------  
+  //-------------------------------------------------------------------------
   initial begin
-    // Initialize signals
-    IDATA = 8'h00;
-    IADDR = 7'h00;
-    I_RW  = 1'b0;
-    IDRDY = 1'b0;
+    // Initialize both master and slave signals
+    master_IDATA = 8'h00;
+    master_IADDR = 7'h00;
+    master_I_RW  = 1'b0;  // Start with write operation
+    master_IDRDY = 1'b0;
 
-    // Wait until reset is released
+    // Configure slave with its address and preload data to be sent on a read transaction
+    slave_IDATA = 8'h55;  // Arbitrary data value to send back on read
+    slave_IADDR = 7'h50;  // Slave address
+    slave_I_RW  = 1'b0;   // Slave idle setting; in a real scenario, this might be auto-detected
+    slave_IDRDY = 1'b0;
+
+    // Wait for reset deassertion
     @(posedge NRST);
     #50;
 
-    //--- Write Transaction Example ------------------------------------------
-    $display("Starting Write Transaction...");
-    IADDR = 7'h50;   // Example I2C address (change as needed)
-    IDATA = 8'hA5;   // Data to be written
-    I_RW  = 1'b0;    // Write operation assumed when I_RW is 0
-    IDRDY = 1'b1;    // Signal that data is ready for transmission
+    //===============================
+    // Write Transaction (Master TX)
+    //===============================
+    $display("Time %t: Master Write Transaction Starting...", $time);
+    
+    master_IADDR = 7'h50;    // Set target slave address
+    master_IDATA = 8'hA5;    // Data to write to the slave
+    master_I_RW  = 1'b0;     // Write operation
+    master_IDRDY = 1'b1;     // Indicate data ready for transmission
     #10;
-    IDRDY = 1'b0;
+    master_IDRDY = 1'b0;
 
-    // Wait until the DUT indicates the transaction is complete
-    wait (BUSY == 1'b0);
-    $display("Write Transaction Completed. Output data: %h", ODATA);
-
+    // Wait until the master controller indicates completion (BUSY goes low)
+    wait (master_BUSY == 1'b0);
+    $display("Time %t: Master Write Completed. Master ODATA: %h", $time, master_ODATA);
     #100;
 
-    //--- Read Transaction Example -------------------------------------------
-    $display("Starting Read Transaction...");
-    IADDR = 7'h50;   // Example I2C address for the read
-    I_RW  = 1'b1;    // Read operation assumed when I_RW is 1
-    IDRDY = 1'b1;    // Indicate data ready for transmission
+    //===============================
+    // Read Transaction (Master RX)
+    //===============================
+    $display("Time %t: Master Read Transaction Starting...", $time);
+    
+    master_IADDR = 7'h50;    // Set target slave address
+    master_I_RW  = 1'b1;     // Read operation
+    master_IDRDY = 1'b1;     // Signal transaction start for read
     #10;
-    IDRDY = 1'b0;
+    master_IDRDY = 1'b0;
 
-    // Wait until data reception is complete (ODRDY asserted)
-    wait (ODRDY == 1'b1);
-    $display("Read Transaction Completed. Data read: %h", ODATA);
+    // The slave should be prepared to send data. In this simple testbench,
+    // we signal the slave that data is ready with slave_IDRDY.
+    slave_IDRDY = 1'b1;
+    #10;
+    slave_IDRDY = 1'b0;
 
+    // Wait until the master controller receives the data (ODRDY asserted)
+    wait (master_ODRDY == 1'b1);
+    $display("Time %t: Master Read Completed. Data received: %h", $time, master_ODATA);
     #100;
 
     $finish;
+  end
+
+  //-------------------------------------------------------------------------
+  // Optional: Dump waveforms for viewing in a waveform viewer
+  //-------------------------------------------------------------------------
+  initial begin
+    $dumpfile("tb_dual_i2c.vcd");
+    $dumpvars(0, tb_dual_i2c);
   end
 
 endmodule

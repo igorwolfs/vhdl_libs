@@ -25,16 +25,18 @@ STARTING COMMUNICATION:
 
 module i2c_controller #(CLOCK_FREQUENCY=100_000_000, I2C_FREQ=100_000, DATA_BITS=8) (
 	input CLK,
-	input NRST,
-	inout I2C_SDA,			//< SPI data line
-	inout I2C_SCL,			//< SPI clock
-	input [7:0] IDATA,		   //< 8-bit data input
-	input [6:0] IADDR,		   //< 7-bit ADDR input
-	input I_RW,				    //< 1-bit read/write input
-	output reg [7:0] ODATA,	   //< 8-bit data output read
-	output reg BUSY, 		    //< Indicates busy-state to output
-	output ODRDY,			   //< Data received ready
-	input IDRDY				    //< Data ready for transmission
+	input NRST,					//> NRST
+	inout I2C_SDA,				//> SPI data line
+	inout I2C_SCL,				//> SPI clock
+	input [7:0] IDATA,		   	//> 8-bit data input
+	input [6:0] IADDR,		   	//> 7-bit ADDR input
+	input I_RW,				    //> 1-bit read/write input
+	output reg [6:0] OADDR,     //> Data received, to be read
+	output reg O_RW,
+	output reg [7:0] ODATA,	   	//> 8-bit data output read
+	output reg BUSY, 		    //> Indicates busy-state to output
+	output ODRDY,			   	//> Data received ready
+	input IDRDY				    //> Data ready for transmission
 );
 
 // * STATE PARAMETERS AND VARIABLES
@@ -48,6 +50,7 @@ localparam S_RX_START = 6;
 localparam S_RX_ADDR = 7;
 localparam S_RX_ACK = 8;
 localparam S_RX_DATA = 9;
+localparam S_RX_STOP = 10;
 
 reg [3:0] state_next;
 reg [3:0] state_internal;	//> State of internal state machine.
@@ -225,6 +228,7 @@ begin: SM_COMB
 			if (addr_i < 8)
 			begin
 				state_next = S_RX_ADDR;
+				i2c_clk_enable = 1;
 			end
 			else
 			begin
@@ -234,10 +238,41 @@ begin: SM_COMB
 		end
 		S_RX_ACK:
 		begin
-			//> Reactivate the clock (reset), pull the SDA low and wait for the SCL to be low again
-			if ((i2c_clk_count == CYCLES_I2C_HALF) & ())
+			if ((i2c_clk_count == CYCLES_I2C_HALF) & (I2C_SCL == 1))
 			begin
-				
+				if (addr_i > 8)
+					state_next = S_RX_DATA;
+				else
+					state_next = S_RX_STOP;
+			end
+			else
+			begin	//> Wait until the end of the clock cycle
+				state_next = S_RX_ACK;
+			end
+		end
+		S_RX_DATA:
+		begin
+			if (data_i < 8)
+			begin
+				state_next = S_RX_DATA;
+				i2c_clk_enable = 1;
+			end
+			else
+			begin
+				state_next = S_RX_ACK;
+				i2c_clk_enable = 0; 	//> Disable the clock for a single cycle
+			end
+		end
+		S_RX_STOP:
+		begin
+			//> Wait for when DRDY is pulled high, transition to IDLE
+			if (ODRDY)
+			begin
+				state_next = S_IDLE;
+			end
+			else
+			begin
+				state_next = S_RX_STOP;
 			end
 		end
 	endcase
@@ -361,14 +396,8 @@ begin: I2C_RX_SYNC
 	begin
 		// state_internal <= state_next; //> Done in TX_SYNC
 		case (state_next)
-			S_IDLE:			//> Wait double flip-flop sampling, check in combinatorial logic for start condition
-			begin
-				
-			end
-			S_RX_START:		//> Combinatorially wait for the clock-line to go low
-			begin
-				
-			end
+			S_IDLE:;			//> Wait double flip-flop sampling, check in combinatorial logic for start condition
+			S_RX_START:;		//> Combinatorially wait for the clock-line to go low
 			S_RX_ADDR:
 			begin
 				if (state_internal == S_RX_START)
@@ -378,7 +407,6 @@ begin: I2C_RX_SYNC
 				end
 				else
 				begin
-					i2c_clk_enable = 1; //> Enable clock
 					if (((i2c_clk_count == CYCLES_I2C_QUART) | (i2c_clk_count == CYCLES_I2C_HALF)) & (TX_I2C_SCL == 1))  //> Change in the centre of the low-cycle
 					begin
 						if (addr_i < DATA_BITS)
@@ -391,7 +419,40 @@ begin: I2C_RX_SYNC
 			S_RX_ACK:
 			begin
 				//> Pull the SDA line low for one clock-cycle to show an ACK
-				RX_I2C_SDA <= 0;
+				if (i2c_clk_count >= CYCLES_I2C_QUART)
+				begin
+					RX_I2C_SDA <= 0;
+				end
+			end
+			S_RX_DATA:
+			begin
+				if (state_internal == S_RX_START)
+				begin
+					ack_internal <= 0; 			//> Reset ACK
+					TX_I2C_SCL <= 0; 			//> Clock count start
+				end
+				else
+				begin
+					if (((i2c_clk_count == CYCLES_I2C_QUART) | (i2c_clk_count == CYCLES_I2C_HALF)) & (TX_I2C_SCL == 1))  //> Change in the centre of the low-cycle
+					begin
+						if (data_i < DATA_BITS)
+						begin
+							data_internal[data_i] <= I2C_SDA_SYNC; 	//> Pull data line low
+						end
+						data_i <= data_i + 1; //> Should keep going until addr_i is equal to 8 -> then we should enter RX_ACK stage
+					end
+					else;
+				end
+			end
+			S_RX_STOP:
+			begin
+				//! Warning: detects scl and sda high, should detect poedge sda when scl high
+				//> Set data out to data when stop condition asserted
+				if ((I2C_SDA_SYNC == 1) & (I2C_SCL_SYNC == 1))
+				begin
+					//> Set data out
+					ODRDY <= data_internal;
+				end
 			end
 		endcase
 	end
@@ -422,4 +483,8 @@ endmodule
 - In the start state, wait for the SCL to go low -> move to RX_ADDR
 - Run the double rx-signal through a double flip-flop sync.
 
+
+ACK:
+- Pull the SDA low after a quarter cycle of CLK-low
+- transition should happen when CLK is high and i2c_clk_count is halfway
 */
