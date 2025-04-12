@@ -1,178 +1,193 @@
-`timescale 1ns/1ps
-module tb_dual_i2c;
+`timescale 1ns / 1ps
 
-  //-------------------------------------------------------------------------
-  // Parameters
-  //-------------------------------------------------------------------------
-  parameter CLOCK_FREQUENCY = 100_000_000;
-  parameter I2C_FREQ        = 100_000;
-  parameter DATA_BITS       = 8;
+module tb_i2c_slave;
 
-  //-------------------------------------------------------------------------
-  // Clock and Reset Signals
-  //-------------------------------------------------------------------------
-  reg CLK;
+  // ----------------------------------------
+  // Testbench signals for the bus
+  // ----------------------------------------
+  reg  SCL_drive_tb;
+  reg  SDA_drive_tb;
+  
+  wire SCL_pin;
+  wire SDA_pin;
+  
+  assign SCL_pin = SCL_drive_tb;
+  assign SDA_pin = SDA_drive_tb;
+
   reg NRST;
 
-  //-------------------------------------------------------------------------
-  // I2C Bus Wires (shared open-drain bus)
-  //-------------------------------------------------------------------------
-  wire I2C_SDA_bus;
-  wire I2C_SCL_bus;
 
-  // Instantiate pull-ups for simulation (open-drain bus behavior)
-  pullup (I2C_SDA_bus);
-  pullup (I2C_SCL_bus);
+  // I2C slave I/O
+  wire [6:0] ADDR_out;
+  wire       ARDY_out;
+  wire       RW_out;
+  wire [7:0] ODATA_out;
+  reg  [7:0] IDATA_in;
+  wire       DRDY_out;
+  wire       BUSY_out;
+  
+  // Stall signals
+  reg  ACKA_RDY_tb;
+  reg  ACKD_RDY_tb;
 
-  //-------------------------------------------------------------------------
-  // Master (Transmitter) Signals
-  //-------------------------------------------------------------------------
-  reg [7:0] master_IDATA;
-  reg [6:0] master_IADDR;
-  reg       master_I_RW;    // 0 = write, 1 = read
-  reg       master_IDRDY;
-  wire [7:0] master_ODATA;
-  wire       master_BUSY;
-  wire       master_ODRDY;
-
-  //-------------------------------------------------------------------------
-  // Slave (Receiver) Signals
-  //-------------------------------------------------------------------------
-  reg [7:0] slave_IDATA;
-  reg [6:0] slave_IADDR;
-  reg       slave_I_RW;     // For a slave, this could determine data direction.
-  reg       slave_IDRDY;
-  wire [7:0] slave_ODATA;
-  wire       slave_BUSY;
-  wire       slave_ODRDY;
-
-  //-------------------------------------------------------------------------
-  // Instantiate the Master I2C Controller
-  //-------------------------------------------------------------------------
-  i2c_controller #(
-    .CLOCK_FREQUENCY(CLOCK_FREQUENCY),
-    .I2C_FREQ(I2C_FREQ),
-    .DATA_BITS(DATA_BITS)
-  ) master_i2c (
-    .CLK    (CLK),
-    .NRST   (NRST),
-    .I2C_SDA(I2C_SDA_bus),
-    .I2C_SCL(I2C_SCL_bus),
-    .IDATA  (master_IDATA),
-    .IADDR  (master_IADDR),
-    .I_RW   (master_I_RW),
-    .ODATA  (master_ODATA),
-    .BUSY   (master_BUSY),
-    .ODRDY  (master_ODRDY),
-    .IDRDY  (master_IDRDY)
+  // ----------------------------------------
+  // Instantiate the i2c_slave
+  // ----------------------------------------
+  i2c_slave uut (
+    .SCL      (SCL_pin),
+    .SDA      (SDA_pin),
+    .ADDR     (ADDR_out),
+    .ARDY     (ARDY_out),
+    .RW       (RW_out),
+    .ODATA    (ODATA_out),
+    .IDATA    (IDATA_in),
+    .DRDY     (DRDY_out),
+    .NRST     (NRST),
+    .ACKA_RDY (ACKA_RDY_tb),
+    .ACKD_RDY (ACKD_RDY_tb),
+    .BUSY     (BUSY_out)
   );
 
-  //-------------------------------------------------------------------------
-  // Instantiate the Slave I2C Controller
-  //-------------------------------------------------------------------------
-  i2c_controller #(
-    .CLOCK_FREQUENCY(CLOCK_FREQUENCY),
-    .I2C_FREQ(I2C_FREQ),
-    .DATA_BITS(DATA_BITS)
-  ) slave_i2c (
-    .CLK    (CLK),
-    .NRST   (NRST),
-    .I2C_SDA(I2C_SDA_bus),
-    .I2C_SCL(I2C_SCL_bus),
-    .IDATA  (slave_IDATA),
-    .IADDR  (slave_IADDR),
-    .I_RW   (slave_I_RW),
-    .ODATA  (slave_ODATA),
-    .BUSY   (slave_BUSY),
-    .ODRDY  (slave_ODRDY),
-    .IDRDY  (slave_IDRDY)
-  );
-
-  //-------------------------------------------------------------------------
-  // Clock Generation: 100 MHz (10 ns period)
-  //-------------------------------------------------------------------------
+  // ----------------------------------------
+  // Initialization
+  // ----------------------------------------
   initial begin
-    CLK = 0;
-    forever #5 CLK = ~CLK;  // toggle every 5 ns
+    // Initially, bus is idle: SDA=1, SCL=1
+    SDA_drive_tb       = 1'b1;
+    SCL_drive_tb       = 1'b1;
+    NRST         = 1'b0;
+    ACKA_RDY_tb  = 1'b1;  // By default, do not stall on ACKA
+    ACKD_RDY_tb  = 1'b1;  // By default, do not stall on ACKD
+    IDATA_in     = 8'hA5; // For read commands, slave will put this on the bus
+
+    // Wait a bit, then release reset
+    #1000;
+    NRST = 1'b1;
+
+    // Wait for reset to be propagated
+    #1000;
+
+    // -----------------------------------------------------
+    // 1) Perform a dummy WRITE sequence (master writes data)
+    // -----------------------------------------------------
+    $display("==== Starting Dummy WRITE sequence ====");
+
+    i2c_start();                    // start condition
+    i2c_write_byte({7'h55, 1'b0});  // 7-bit address = 0x55, R/W=0 (WRITE)
+    i2c_write_byte(8'hDE);          // data byte #1
+    i2c_write_byte(8'hAD);          // data byte #2
+    i2c_stop();
+
+    #1000;
+
+    // -----------------------------------------------------
+    // 2) Perform a dummy READ sequence (master reads data)
+    // -----------------------------------------------------
+    $display("==== Starting Dummy READ sequence ====");
+
+    i2c_start();
+    i2c_write_byte({7'h55, 1'b1});  // 7-bit address = 0x55, R/W=1 (READ)
+    i2c_read_byte(1'b1);            // read byte, then send ACK=1 (ACK)
+    i2c_read_byte(1'b0);            // read another byte, then send NACK=0
+    i2c_stop();
+
+    #2000;
+    $stop;  // End simulation
   end
 
-  //-------------------------------------------------------------------------
-  // Reset Generation
-  //-------------------------------------------------------------------------
-  initial begin
-    NRST = 0;
-    #20;
-    NRST = 1;
+  // ----------------------------------------
+  // Basic I2C Timing Parameters
+  // ----------------------------------------
+  parameter BIT_PERIOD = 200;  // adjust for readability in simulation
+
+  // ----------------------------------------
+  // I2C Master Tasks (bit-banged)
+  // ----------------------------------------
+
+  // Pull SDA low while SCL high => START condition
+  task i2c_start;
+  begin
+    SDA_drive_tb = 1'b1;
+    SCL_drive_tb = 1'b1;
+    #(BIT_PERIOD/2);
+    SDA_drive_tb = 1'b0;   // SDA goes low while SCL is high
+    #(BIT_PERIOD/2);
+    SCL_drive_tb = 1'b0;   // Now drive clock low
+    #(BIT_PERIOD);
   end
+  endtask
 
-  //-------------------------------------------------------------------------
-  // Test Sequence
-  //-------------------------------------------------------------------------
-  initial begin
-    // Initialize both master and slave signals
-    master_IDATA = 8'h00;
-    master_IADDR = 7'h00;
-    master_I_RW  = 1'b0;  // Start with write operation
-    master_IDRDY = 1'b0;
-
-    // Configure slave with its address and preload data to be sent on a read transaction
-    slave_IDATA = 8'h55;  // Arbitrary data value to send back on read
-    slave_IADDR = 7'h50;  // Slave address
-    slave_I_RW  = 1'b0;   // Slave idle setting; in a real scenario, this might be auto-detected
-    slave_IDRDY = 1'b0;
-
-    // Wait for reset deassertion
-    @(posedge NRST);
-    #50;
-
-    //===============================
-    // Write Transaction (Master TX)
-    //===============================
-    $display("Time %t: Master Write Transaction Starting...", $time);
-    
-    master_IADDR = 7'h50;    // Set target slave address
-    master_IDATA = 8'hA5;    // Data to write to the slave
-    master_I_RW  = 1'b0;     // Write operation
-    master_IDRDY = 1'b1;     // Indicate data ready for transmission
-    #10;
-    master_IDRDY = 1'b0;
-
-    // Wait until the master controller indicates completion (BUSY goes low)
-    wait (master_BUSY == 1'b0);
-    $display("Time %t: Master Write Completed. Master ODATA: %h", $time, master_ODATA);
-    #100;
-
-    //===============================
-    // Read Transaction (Master RX)
-    //===============================
-    $display("Time %t: Master Read Transaction Starting...", $time);
-    
-    master_IADDR = 7'h50;    // Set target slave address
-    master_I_RW  = 1'b1;     // Read operation
-    master_IDRDY = 1'b1;     // Signal transaction start for read
-    #10;
-    master_IDRDY = 1'b0;
-
-    // The slave should be prepared to send data. In this simple testbench,
-    // we signal the slave that data is ready with slave_IDRDY.
-    slave_IDRDY = 1'b1;
-    #10;
-    slave_IDRDY = 1'b0;
-
-    // Wait until the master controller receives the data (ODRDY asserted)
-    wait (master_ODRDY == 1'b1);
-    $display("Time %t: Master Read Completed. Data received: %h", $time, master_ODATA);
-    #100;
-
-    $finish;
+  // Pull SDA high while SCL high => STOP condition
+  task i2c_stop;
+  begin
+    // Assume SCL is already low
+    SDA_drive_tb = 1'b0;
+    #(BIT_PERIOD/2);
+    SCL_drive_tb = 1'b1;
+    #(BIT_PERIOD/2);
+    SDA_drive_tb = 1'b1;
+    #(BIT_PERIOD);
   end
+  endtask
 
-  //-------------------------------------------------------------------------
-  // Optional: Dump waveforms for viewing in a waveform viewer
-  //-------------------------------------------------------------------------
-  initial begin
-    $dumpfile("tb_dual_i2c.vcd");
-    $dumpvars(0, tb_dual_i2c);
-  end
+  // Master writes a byte: sends 8 bits, reads 1 bit ACK
+  task i2c_write_byte(input [7:0] data_in);
+    integer i;
+    begin
+      for (i=7; i>=0; i=i-1) begin
+        // Put data on SDA
+        SDA_drive_tb = data_in[i];
+        #(BIT_PERIOD/2);
+        // Rising edge => slave samples bit
+        SCL_drive_tb = 1'b1;
+        #(BIT_PERIOD/2);
+        // Falling edge
+        SCL_drive_tb = 1'b0;
+        #(BIT_PERIOD/2);
+      end
+      // Now read ACK bit
+      // Master releases SDA (goes high) so slave can drive it
+      SDA_drive_tb = 1'b1;
+      #(BIT_PERIOD/2);
+      SCL_drive_tb = 1'b1;
+      #(BIT_PERIOD/2);
+      // Here you could sample SDA_drive_tb to check for actual ACK
+      // For now, we just wait
+      SCL_drive_tb = 1'b0;
+      #(BIT_PERIOD/2);
+    end
+  endtask
+
+  // Master reads a byte from slave: it releases SDA each bit, then
+  // drives ACK=1 or NACK=0 after the byte
+  task i2c_read_byte(input bit ack);
+    integer i;
+    reg [7:0] data_in;
+    begin
+      data_in = 8'h00;
+      for (i=7; i>=0; i=i-1) begin
+        // Release SDA
+        SDA_drive_tb = 1'b1;
+        #(BIT_PERIOD/2);
+        // Rising edge => sample bit
+        SCL_drive_tb = 1'b1;
+        #(BIT_PERIOD/4);
+        data_in[i] = SDA_drive_tb;  // sample
+        #(BIT_PERIOD/4);
+        // Falling edge
+        SCL_drive_tb = 1'b0;
+        #(BIT_PERIOD/2);
+      end
+      // Now master sends ACK or NACK
+      SDA_drive_tb = ~ack;  // ack=1 => SDA=0 (ACK), ack=0 => SDA=1 (NACK)
+      #(BIT_PERIOD/2);
+      SCL_drive_tb = 1'b1;
+      #(BIT_PERIOD/2);
+      SCL_drive_tb = 1'b0;
+      #(BIT_PERIOD/2);
+      
+      $display("Master read byte = 0x%02h (sent ack=%b) at time %t", data_in, ack, $time);
+    end
+  endtask
 
 endmodule
