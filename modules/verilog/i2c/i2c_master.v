@@ -73,7 +73,6 @@ double_ff_sync #(.WIDTH(1), .NRST_VAL(1)) ff_sync_scl (
 // * RX VARIABLES
 reg RX_I2C_SDA;
 
-
 // * TX VARIABLES
 reg TX_I2C_SDA, TX_I2C_SCL;
 
