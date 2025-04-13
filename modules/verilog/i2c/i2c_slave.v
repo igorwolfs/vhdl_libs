@@ -2,8 +2,8 @@
 
 
 module i2c_slave (
-	inout SCL, 							//> 
-	inout SDA,							//> 
+	inout SCL, 							//> SCL
+	inout SDA,							//> SDA
 	output reg [6:0] 	ADDR,			//> Indicates the address that needs to be read / written
 	output reg			ARDY,			//> Indicates address + R/W is received
 	output reg 			RW,			//> Indicates whether read / write takes place
@@ -53,6 +53,10 @@ begin
 	begin
 		curr_state <= next_state;
 		case (next_state)
+			S_IDLE:
+			begin
+				counter <= 8;
+			end
 			S_ACKA:
 			begin
 				sda_slave <= 0;
@@ -61,8 +65,8 @@ begin
 			begin
 				if (RW == RW_READ)
 				begin
-					counter <= counter + 1;
-					sda_slave <= IDATA[counter];
+					counter <= counter - 1;
+					sda_slave <= IDATA[(counter-1)];
 				end
 				else;
 			end
@@ -82,36 +86,36 @@ end
 always @(posedge SCL or negedge NRST) begin
 	if (~NRST)
 	begin
-	  counter <= 0;
+	  counter <= 8;
 	end
 	else 
 	begin
 	  case (curr_state)
 		S_ADDR:
 		begin
-			if (counter < 7)
-				ADDR[counter] <= SDA;
-			else if (counter == 7)
+			if (counter > 1)
+				ADDR[(counter-2)] <= SDA;
+			else if (counter == 1)
 				RW <= SDA;
 			else;
-			counter <= counter + 1;
+			counter <= counter - 1;
 		end
 		S_ACKA:
 		begin
-			counter <= 0;
+			counter <= 8;
 		end
 		S_DATA: //> Data read should happen on posedge
 		begin
 			if (RW == RW_WRITE)
 			begin
-				ODATA[counter] <= SDA;
-				counter <= counter + 1;
+				ODATA[counter-1] <= SDA;
+				counter <= counter - 1;
 			end
 			else;
 		end
 		S_ACKD:
 		begin
-			counter <= 0;
+			counter <= 8;
 		end
 	  endcase
 	end
@@ -130,7 +134,7 @@ always @(negedge SDA, negedge NRST, negedge SCL)
 begin
 	if (~NRST)
 		start_condition <= 0;
-	else if (curr_state == S_IDLE)
+	else if (next_state == S_IDLE)
 	begin
 		if (SCL == 1'b1)
 		begin
@@ -143,15 +147,16 @@ begin
 end
 
 //> STOP CONDITION DETECTOR
-always @(posedge SDA, negedge NRST, posedge SCL)
+always @(posedge SDA, negedge NRST, negedge SCL)
 begin
 	if (~NRST)
 		stop_condition <= 0;
 	else
 	begin
-		if (SCL == 1'b0)
+		if (SCL == 1'b1)
 		begin
 			stop_condition <= 1;
+			// curr_state <= S_IDLE;
 		end
 		else
 			stop_condition <= 0; //> Set start condition to 0 when SCL goes high
@@ -186,7 +191,7 @@ always @(*) begin
 			
 			S_ADDR: //> Wait until address + R/W is received
 			begin
-				if (counter > 7)
+				if (counter == 0)
 					next_state = S_ACKA;
 				else 
 					next_state = S_ADDR;
@@ -209,7 +214,7 @@ always @(*) begin
 			
 			S_DATA:
 			begin
-				if (counter > 7)
+				if (counter == 0)
 				begin
 					next_state = S_ACKD;
 				end
@@ -251,10 +256,11 @@ endmodule
 
 /**
 
-ISSUE:
+TODO:
 - The I2C is probably pulled lowed here by both the testbench and the i2c-slave.
 - Make sure to release the I2C in the testbench when not using it.
-
+- The curr state doesn't become IDLE due to the lack of the last negedge in the state transition
+	- Find a solution for that (e.g.: inside the stop-condition perhaps?)
 
 ACK
 - If the operation is read, make sure the slave awaits the master ACK after the data transmission
