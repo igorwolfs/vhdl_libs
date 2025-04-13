@@ -21,12 +21,11 @@ localparam S_ADDR = 1;
 localparam S_ACKA = 2;
 localparam S_DATA = 3;
 localparam S_ACKD = 4;
-localparam S_STOP = 5;
 
 localparam RW_WRITE = 1'b0;
 localparam RW_READ = 1'b1;
 
-reg [2:0] counter;
+reg [3:0] counter;
 reg [7:0] data_internal;
 reg r_w_internal;
 reg [2:0] next_state;
@@ -46,7 +45,10 @@ assign SDA = (sda_drive) ? sda_slave : 1'bz;
 always @(negedge SCL, negedge NRST)
 begin
 	if (~NRST)
+	begin
 		curr_state <= S_IDLE;
+		sda_slave <= 0;
+	end
 	else
 	begin
 		curr_state <= next_state;
@@ -145,16 +147,15 @@ always @(posedge SDA, negedge NRST, posedge SCL)
 begin
 	if (~NRST)
 		stop_condition <= 0;
-	else if (curr_state == S_STOP)
+	else
 	begin
 		if (SCL == 1'b0)
 		begin
 			stop_condition <= 1;
 		end
-		else;
+		else
+			stop_condition <= 0; //> Set start condition to 0 when SCL goes high
 	end
-	else
-		stop_condition <= 0; //> Set start condition to 0 when SCL goes high
 end
 
 always @(*) begin
@@ -165,83 +166,100 @@ always @(*) begin
 	DRDY = 1'b0;
 	BUSY = 1'b1;
 
-	case (curr_state)
-		S_IDLE:
-		begin
-			if (start_condition)
-				next_state = S_ADDR;
-			else
+	if (stop_condition)
+	begin
+		next_state = S_IDLE;
+	end
+	else
+	begin
+		case (curr_state)
+			S_IDLE:
 			begin
-				next_state = S_IDLE;
-				BUSY = 1'b1;
-			end
-		end
-		
-		S_ADDR: //> Wait until address + R/W is received
-		begin
-			if (counter > 7)
-				next_state = S_ACKA;
-			else 
-				next_state = S_ADDR;
-		end
-		
-		S_ACKA:	//> Address-ready out, waiting for data-in ready
-		begin
-			ARDY = 1'b1;
-			if (ACKA_RDY) 			//> Should be enabled until the ARDY out turns low
-			begin
-				sda_drive = 1'b1; 	//> Drive SDA low
-				next_state = S_DATA;
-			end
-			else
-			begin
-				scl_drive = 1'b1; //> Stall
-				next_state = S_ACKA;
-			end
-		end
-		
-		S_DATA: 
-		begin
-			if (counter > 7)
-			begin
-				next_state = S_ACKD;
-			end
-			else
-			begin
-				if (RW == RW_READ)
+				if (start_condition)
+					next_state = S_ADDR;
+				else
 				begin
-					next_state = S_DATA;
-					sda_drive = 1'b1; //> Slave drive SDA when data write
+					next_state = S_IDLE;
+					BUSY = 1'b1;
 				end
 			end
-		end
-		
-		S_ACKD: 
-		begin
-			DRDY = 1'b1;
-			if (ACKD_RDY) 		  //> Should be enabled until DRDY out turns low
+			
+			S_ADDR: //> Wait until address + R/W is received
 			begin
-				sda_drive = 1'b1; //> Drive SDA low
-				next_state = S_STOP;
+				if (counter > 7)
+					next_state = S_ACKA;
+				else 
+					next_state = S_ADDR;
 			end
-			else
+			
+			S_ACKA:	//> Address-ready out, waiting for data-in ready
 			begin
-				scl_drive = 1'b1; //> Stall
-				next_state = S_ACKD;
+				ARDY = 1'b1;
+				if (ACKA_RDY) 				//> Should be enabled until the ARDY out turns low
+				begin
+					sda_drive = 1'b1; 		//> Drive SDA low
+					next_state = S_DATA;
+				end
+				else
+				begin
+					scl_drive = 1'b1; 		//> Stall
+					next_state = S_ACKA;
+				end
 			end
-		end
+			
+			S_DATA:
+			begin
+				if (counter > 7)
+				begin
+					next_state = S_ACKD;
+				end
+				else
+				begin
+					next_state = S_DATA;
+					if (RW == RW_READ)
+					begin
+						sda_drive = 1'b1; 	//> Slave drive SDA when data write
+					end
+				end
+			end
+			
+			S_ACKD:
+			begin
+				DRDY = 1'b1;
+				if (ACKD_RDY) 		  		//> Should be enabled until DRDY out turns low
+				begin
+					if (RW == RW_WRITE) 	//> Drive SDA low (master write)
+						sda_drive = 1'b1;
+					else;					//> Master read, slave should wait for ACK
+					next_state = S_DATA; 	//> Continue back to data-state
+				end
+				else
+				begin
+					scl_drive = 1'b1; 		//> Stall
+					next_state = S_ACKD;
+				end
+			end
 
-		S_STOP: 
-		begin
-			if (stop_condition)
-				next_state = S_IDLE;
-			else
-				next_state = S_STOP;
-		end
-		
-		default: next_state = S_IDLE;
-	endcase
+			default: next_state = S_IDLE;
+		endcase
+	end
   end
 
 
 endmodule
+
+
+/**
+
+ISSUE:
+- The I2C is probably pulled lowed here by both the testbench and the i2c-slave.
+- Make sure to release the I2C in the testbench when not using it.
+
+
+ACK
+- If the operation is read, make sure the slave awaits the master ACK after the data transmission
+- It seems like the stop condition isn't triggered appropriately, why not?
+
+S_ACKD
+- The slave needs to keep reading / writing until the master is done.
+*/

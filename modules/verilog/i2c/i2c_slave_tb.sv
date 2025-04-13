@@ -5,17 +5,18 @@ module tb_i2c_slave;
   // ----------------------------------------
   // Testbench signals for the bus
   // ----------------------------------------
-  reg  SCL_drive_tb;
-  reg  SDA_drive_tb;
+  reg SCL_tb;
+  reg SCL_drive_tb;
+  reg SDA_tb;
+  reg SDA_drive_tb;
   
   wire SCL_pin;
   wire SDA_pin;
   
-  assign SCL_pin = SCL_drive_tb;
-  assign SDA_pin = SDA_drive_tb;
+  assign SCL_pin = SCL_drive_tb ? SCL_tb :  1'bz;
+  assign SDA_pin = SDA_drive_tb ? SDA_tb : 1'bz;
 
   reg NRST;
-
 
   // I2C slave I/O
   wire [6:0] ADDR_out;
@@ -33,6 +34,7 @@ module tb_i2c_slave;
   // ----------------------------------------
   // Instantiate the i2c_slave
   // ----------------------------------------
+
   i2c_slave uut (
     .SCL      (SCL_pin),
     .SDA      (SDA_pin),
@@ -55,6 +57,9 @@ module tb_i2c_slave;
     // Initially, bus is idle: SDA=1, SCL=1
     SDA_drive_tb       = 1'b1;
     SCL_drive_tb       = 1'b1;
+    SDA_tb = 1'b1;
+    SCL_tb = 1'b1;
+
     NRST         = 1'b0;
     ACKA_RDY_tb  = 1'b1;  // By default, do not stall on ACKA
     ACKD_RDY_tb  = 1'b1;  // By default, do not stall on ACKD
@@ -107,12 +112,14 @@ module tb_i2c_slave;
   // Pull SDA low while SCL high => START condition
   task i2c_start;
   begin
-    SDA_drive_tb = 1'b1;
-    SCL_drive_tb = 1'b1;
+    SDA_drive_tb       = 1'b1;
+    SCL_drive_tb       = 1'b1;
+    SDA_tb = 1'b1;
+    SCL_tb = 1'b1;
     #(BIT_PERIOD/2);
-    SDA_drive_tb = 1'b0;   // SDA goes low while SCL is high
+    SDA_tb = 1'b0;   // SDA goes low while SCL is high
     #(BIT_PERIOD/2);
-    SCL_drive_tb = 1'b0;   // Now drive clock low
+    SCL_tb = 1'b0;   // Now drive clock low
     #(BIT_PERIOD);
   end
   endtask
@@ -120,12 +127,14 @@ module tb_i2c_slave;
   // Pull SDA high while SCL high => STOP condition
   task i2c_stop;
   begin
+    SDA_drive_tb       = 1'b1;
+    SCL_drive_tb       = 1'b1;
     // Assume SCL is already low
-    SDA_drive_tb = 1'b0;
+    SDA_tb = 1'b0;
     #(BIT_PERIOD/2);
-    SCL_drive_tb = 1'b1;
+    SCL_tb = 1'b1;
     #(BIT_PERIOD/2);
-    SDA_drive_tb = 1'b1;
+    SDA_tb = 1'b1;
     #(BIT_PERIOD);
   end
   endtask
@@ -136,24 +145,24 @@ module tb_i2c_slave;
     begin
       for (i=7; i>=0; i=i-1) begin
         // Put data on SDA
-        SDA_drive_tb = data_in[i];
+        SDA_tb = data_in[i];
         #(BIT_PERIOD/2);
         // Rising edge => slave samples bit
-        SCL_drive_tb = 1'b1;
+        SCL_tb = 1'b1;
         #(BIT_PERIOD/2);
         // Falling edge
-        SCL_drive_tb = 1'b0;
+        SCL_tb = 1'b0;
         #(BIT_PERIOD/2);
       end
       // Now read ACK bit
       // Master releases SDA (goes high) so slave can drive it
-      SDA_drive_tb = 1'b1;
+      SDA_tb = 1'b0;
       #(BIT_PERIOD/2);
-      SCL_drive_tb = 1'b1;
+      SCL_tb = 1'b1; // Leave clock high? -> can't really detect whether it's been pulled low.
       #(BIT_PERIOD/2);
       // Here you could sample SDA_drive_tb to check for actual ACK
       // For now, we just wait
-      SCL_drive_tb = 1'b0;
+      SCL_tb = 1'b0;
       #(BIT_PERIOD/2);
     end
   endtask
@@ -167,23 +176,27 @@ module tb_i2c_slave;
       data_in = 8'h00;
       for (i=7; i>=0; i=i-1) begin
         // Release SDA
-        SDA_drive_tb = 1'b1;
+        SDA_tb = 1'b1;
         #(BIT_PERIOD/2);
         // Rising edge => sample bit
-        SCL_drive_tb = 1'b1;
+        SCL_tb = 1'b1;
         #(BIT_PERIOD/4);
-        data_in[i] = SDA_drive_tb;  // sample
+        data_in[i] = SDA_tb;  // sample
         #(BIT_PERIOD/4);
         // Falling edge
-        SCL_drive_tb = 1'b0;
+        SCL_tb = 1'b0;
         #(BIT_PERIOD/2);
       end
+
+      SDA_drive_tb       = 1'b1;
+      SCL_drive_tb       = 1'b1;
+
       // Now master sends ACK or NACK
-      SDA_drive_tb = ~ack;  // ack=1 => SDA=0 (ACK), ack=0 => SDA=1 (NACK)
+      SDA_tb = ~ack;  // ack=1 => SDA=0 (ACK), ack=0 => SDA=1 (NACK)
       #(BIT_PERIOD/2);
-      SCL_drive_tb = 1'b1;
+      SCL_tb = 1'b1;
       #(BIT_PERIOD/2);
-      SCL_drive_tb = 1'b0;
+      SCL_tb = 1'b0;
       #(BIT_PERIOD/2);
       
       $display("Master read byte = 0x%02h (sent ack=%b) at time %t", data_in, ack, $time);
